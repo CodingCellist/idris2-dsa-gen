@@ -1,0 +1,4 @@
+package DSAGen
+
+opts = "-p contrib"
+
