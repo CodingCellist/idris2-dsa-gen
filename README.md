@@ -7,3 +7,6 @@ spotted some patterns in chapter 14 in terms of modelling dependent state
 automata in Idris. This project attempts to auto-generate the Idris2 source-code
 for these based on a DOT (`.gv`) file.
 
+# License
+This work is licensed under GPL-2.0.
+
