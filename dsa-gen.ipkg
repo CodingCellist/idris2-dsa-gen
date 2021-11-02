@@ -1,4 +1,4 @@
-package DSAGen
+package dsa-gen
 -- version =
 authors = "Thomas E. Hansen"
 -- maintainers =
@@ -10,13 +10,11 @@ license = "GPL-2.0"
 -- bugtracker =
 
 -- packages to add to search path
--- depends =
+depends = dot-parse
 
 -- modules to install
 modules = DSAGen
         , DSAGen.DSL
-        , DSAGen.DOTLex
-        , DSAGen.DSAParse
 
 -- main file (i.e. file to load at REPL)
 main = DSAGen
