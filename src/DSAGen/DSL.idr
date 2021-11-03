@@ -6,41 +6,80 @@ import Data.String.Extra
 %default total
 
 ||| A label is a string labelling the thing it is associated with.
+public export
 data Label : Type where
   MkLabel : (label : String) -> Label
 
+||| Two `Label`s are equal iff their internal strings are equal.
+Eq Label where
+  (==) (MkLabel l1) (MkLabel l2) = l1 == l2
+
+export
 Show Label where
   show (MkLabel label) = label
 
 %name Label l, l1, l2, l3
 
 ||| A state in a DSA has a label.
+public export
 data State : Type where
   MkState : Label -> State
+
+||| Two `State`s are equal iff their `Label`s are equal.
+Eq State where
+  (==) (MkState l1) (MkState l2) = l1 == l2
 
 Show State where
   show (MkState l) = show l
 
+||| Given a name, create a new `State` with the given name as a `Label`.
+|||
+||| @ name the label for the state
+export
+newState : (name : String) -> State
+newState = MkState . MkLabel
+
 ||| A dependent result has an identifier (name of the result) and a state it
 ||| goes to.
+public export
 data DepRes : Type where
   MkDepRes : (resName : String) -> (to : State) -> DepRes
 
 getResName : DepRes -> String
 getResName (MkDepRes resName _) = resName
 
+||| Two dependent results are equal iff their result-names are equal and their
+||| destinations are equal.
+Eq DepRes where
+  (==) (MkDepRes resName1 t1) (MkDepRes resName2 t2) =
+    resName1 == resName2 && t1 == t2
+
 Show DepRes where
   show (MkDepRes resName to) = "(" ++ resName ++ ") => " ++ show to
 
 ||| An edge is either a regular action from s1 to s2, or a dependent action
 ||| which has a label and a list of dependent results and the state they go to.
+public export
 data Edge : Type where
+  ||| A non-dependent transition between two states.
   RegAction : Label -> (from : State) -> (to : State) -> Edge
+  ||| A dependent transition from a state to at least one other state.
   DepAction : Label
             -> (from : State)
             -> (depTo : List DepRes)
             -> {auto 0 ok : NonEmpty depTo}
             -> Edge
+
+||| Two `Edge`s are equal iff their labels, source, and destination(s) are
+||| equal.
+Eq Edge where
+  (==) (RegAction l1 f1 t1) (RegAction l2 f2 t2) =
+    l1 == l2 && f1 == f2 && t1 == t2
+
+  (==) (DepAction l1 f1 t1) (DepAction l2 f2 t2) =
+    l1 == l2 && f1 == f2 && t1 == t2
+
+  (==) _ _ = False
 
 Show Edge where
   show (RegAction l from to) =
@@ -76,6 +115,7 @@ extractDepStates ((DepAction l _ depTo) :: es) =
   depTo :: extractDepStates es
 
 ||| A DSA is simply a list of states and edges/actions.
+public export
 data DSA : Type where
   MkDSA : (states : List State)
         -> (edges : List Edge)
