@@ -117,7 +117,7 @@ extractDepStates ((DepAction l _ depTo) :: es) =
 ||| A DSA is simply a list of states and edges/actions.
 public export
 data DSA : Type where
-  MkDSA : (states : List State)
+  MkDSA :  (states : List State)
         -> (edges : List Edge)
         -> {auto 0 ok : NonEmpty edges}
         -> DSA
