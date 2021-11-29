@@ -218,6 +218,9 @@ labelValsOK : (vals : List String) -> {auto 0 ok : NonEmpty vals} -> Bool
 labelValsOK [] impossible
 labelValsOK vals = all (\s => (isValidIdrName . unpack) s || isDepEdge s) vals
 
+||| Convert the given DOT to a `Label`. Some DOT is a `Label` iff it is an
+||| assignment from the name "label" to a StringID consisting of at least one
+||| valid transition (see `labelValsOK` for more details on what that means).
 toLabel : DOT -> Maybe Label
 toLabel (Assign [NameID "label", StringID rawVals]) =
   case split (== ',') rawVals of
@@ -235,9 +238,9 @@ toLabel _ = Nothing
 data LDDEdge : Type where
   ||| The edge must have a `from` node and a `to` node, as well as be labelled
   ||| (in order for the transition it describes to have a name).
-  MkLDDEdge :  (from : Identifier)
-            -> (to   : Identifier)
-            -> (l    : Label)
+  MkLDDEdge :  (from  : Identifier)
+            -> (to    : Identifier)
+            -> (label : Label)
             -> LDDEdge
 
 DOTAble LDDEdge where
@@ -246,8 +249,27 @@ DOTAble LDDEdge where
   -- allow directed edges in DOT diagrams of DSAs;
   -- "l" is the edge's label's values, which need to be wrapped in an `AttrList`
   -- and an `AList` to conform to the DOT grammar.
-  toDOT (MkLDDEdge from to l) =
+  toDOT (MkLDDEdge from to label) =
     EdgeStmt (NodeID (NameID from) Nothing)
              (EdgeRHS [DiGrEdgeOp, (NodeID (NameID to) Nothing)])
-             (Just $ AttrList [AList [toDOT l]])
+             (Just $ AttrList [AList [toDOT label]])
+
+||| Convert the given DOT to an identifier. Some DOT is an identifier iff it
+||| is either a NameID or a StringID, and if that ID is a valid Idris name.
+dotToIdentifier : DOT -> Maybe Identifier
+dotToIdentifier (NameID   n) = toIdentifier n
+dotToIdentifier (StringID s) = toIdentifier s
+dotToIdentifier _ = Nothing
+
+||| Convert the given DOT to a `LDDEdge`. Some DOT is an edge in a DSA iff it
+||| goes from a `NodeID` to a `NodeID` using a directed edge, with a single
+||| attribute detailing the labelling of the edge.
+toLDDEdge : DOT -> Maybe LDDEdge
+toLDDEdge (EdgeStmt (NodeID f _) (EdgeRHS [DiGrEdgeOp, (NodeID t _)]) (Just (AttrList [AList [attr]]))) =
+  do from <- dotToIdentifier f
+     to <- dotToIdentifier t
+     label <- toLabel attr
+     pure (MkLDDEdge from to label)
+
+toLDDEdge _ = Nothing
 
