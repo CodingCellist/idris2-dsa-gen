@@ -159,10 +159,12 @@ handleEdgeNodeID _ = Nothing
 ||| Convert an edge in DOT to an edge in a DSA. The DOT describes a valid edge
 ||| iff it is a directed edge and it has a "label" in its attrlist.
 handleEdge : DOT -> Maybe (List DDEdge)
-handleEdge (EdgeStmt (NodeID n _) rhs (Just (AttrList a))) =
-  do a' <- handleEdgeAttrList (AttrList a)
-     ts <- handleAssignment a'
-     ?handleEdge_rhs_21
+handleEdge (EdgeStmt (NodeID f _) (EdgeRHS [DiGrEdgeOp, t]) (Just (AttrList a))) =
+  do assignment <- handleEdgeAttrList (AttrList a)
+     transns <- handleAssignment assignment
+     from <- handleEdgeNodeID f
+     to <- handleEdgeNodeID t
+     pure $ map (\t => MkDDEdge t from to) transns
 
 handleEdge _ = Nothing
 
