@@ -1,8 +1,7 @@
--- Idris2
-
 module DSAGen
 
 import DSAGen.DSL
+import DSAGen.DOTDSA
 
 import Graphics.DOT
 
@@ -14,8 +13,23 @@ atmTest : IO ()
 atmTest = do let str = unsafeGenIdris atm
              putStrLn str
 
+export
 dotTest : IO ()
 dotTest = do Right ast <- readDOTFile "./ATM_example.gv"
-               | Left err => putStrLn "An error occurred."
+               | Left err => putStrLn "Couldn't get AST."
              putStrLn $ "SUCCESS!!\n" ++ show ast
+
+export
+dotDSATest : IO ()
+dotDSATest = do Right ast <- readDOTFile "./ATM_example.gv"
+                  | Left err => putStrLn "Couldn't get AST."
+                putStrLn "Got AST:"
+                putStrLn $ show ast
+                putStrLn "-- CONVERTING --"
+                toDOTDSA2 ast
+--                case toDOTDSA ast of
+--                     Nothing => putStrLn "AST is not a DOTDSA."
+--                     (Just dotDSA) =>
+--                        do putStrLn "SUCCESS!!!"
+--                           putStrLn $ show $ toDOT dotDSA
 
