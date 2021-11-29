@@ -13,13 +13,25 @@ import Data.String
 interface DOTAble a where
   toDOT : a -> DOT
 
+-- FIXME: OLD LABEL IMPLEMENTATION --
 -- TODO: prove that there was a "label" keyword on creation?
-||| Labels are just strings, but we only create them from a "label" keyword
-Label : Type
-Label = String
+-- ||| Labels are just strings, but we only create them from a "label" keyword
+-- Label : Type
+-- Label = String
+-- 
+-- DOTAble Label where
+--   toDOT l = Assign [(NameID "label"), (StringID l)]
+
+-- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
+||| Labels are lists of at least one string.
+data Label : Type where
+  MkLabel : (vals : Vect (S k) String) -> Label
 
 DOTAble Label where
-  toDOT l = Assign [(NameID "label"), (StringID l)]
+  toDOT (MkLabel vals) =
+    -- each of the values must be comma-separated
+    let valStr = foldr1 (++) $ intersperse ", " vals
+    in Assign [(NameID "label"), (StringID valStr)]
 
 -- FIXME: what's the right name?
 Identifier : Type
@@ -35,13 +47,13 @@ isValidIdrName : List Char -> Bool
 isValidIdrName [] = False
 isValidIdrName (c :: cs) = isAlpha c && all (\c => isAlphaNum c || c == '_') cs
 
-||| If the DOT was `label="<value>"`, then we can extract the `Label`.
-toLabel : (id_ : String) -> Maybe Label
-toLabel id_ = toMaybe (isValidIdrName $ unpack id_) id_
+-- ||| If the DOT was `label="<value>"`, then we can extract the `Label`.
+-- toLabel : (id_ : String) -> Maybe Label
+-- toLabel id_ = toMaybe (isValidIdrName $ unpack id_) id_
 
 ||| Returns the given string in a `Just` iff it is a valid Idris name.
 toIdentifier : (s : String) -> Maybe Identifier
-toIdentifier = toLabel
+toIdentifier s = toMaybe (isValidIdrName $ unpack s) s
 
 ||| A slightly more restricted version of DOT for easier conversion to a DSA.
 data DOTDSA : Type where
@@ -54,6 +66,12 @@ data Transition : Type where
   MkTransition :  (tName   : Identifier)
                -> (resName : Maybe Identifier)
                -> Transition
+
+DOTAble Transition where
+  -- TODO: make these `Label`s
+  toDOT (MkTransition tName Nothing) =
+    Assign [(NameID "label"), (StringID tName)]
+  toDOT (MkTransition tName (Just rn)) = ?transToDOT_rhs_2
 
 ||| Return a `Transition` iff the input `id_` has the form "<tName>(<resName>)",
 ||| for example:
@@ -168,4 +186,68 @@ handleEdge (EdgeStmt (NodeID f _) (EdgeRHS [DiGrEdgeOp, t]) (Just (AttrList a)))
 
 handleEdge _ = Nothing
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+||| A string describes a dependent edge iff it contains a valid idris name,
+||| followed by a '(', followed by a valid idris name, followed by a ')'.
+isDepEdge : String -> Bool
+isDepEdge s =
+   let cs = unpack s
+   in case span ((==) '(') cs of 
+           ([], _) => False
+           (_ , []) => False
+           (tName, (_ :: cs')) =>
+             case span ((==) ')') cs' of
+                  ([], _) => False
+                  (resName, _) => isValidIdrName tName && isValidIdrName resName
+
+||| Checks that the values given from `toLabel` are valid DSA values. Each
+||| value is accepted iff it is a valid Idris name or it is a dependent edge.
+labelValsOK : (vals : List String) -> {auto 0 ok : NonEmpty vals} -> Bool
+labelValsOK [] impossible
+labelValsOK vals = all (\s => (isValidIdrName . unpack) s || isDepEdge s) vals
+
+toLabel : DOT -> Maybe Label
+toLabel (Assign [NameID "label", StringID rawVals]) =
+  case split (== ',') rawVals of
+       (head ::: tail) =>
+               let head' = trim head
+                   tail' = map trim tail
+               in if labelValsOK (head' :: tail')
+                     then Just $ MkLabel (fromList (head' :: tail'))
+                     else Nothing
+
+toLabel _ = Nothing
+
+
+||| An edge in a DOT model of a DSA.
+data LDDEdge : Type where
+  ||| The edge must have a `from` node and a `to` node, as well as be labelled
+  ||| (in order for the transition it describes to have a name).
+  MkLDDEdge :  (from : Identifier)
+            -> (to   : Identifier)
+            -> (l    : Label)
+            -> LDDEdge
+
+DOTAble LDDEdge where
+  -- "from" is the id of a node;
+  -- same with "to", but it is part of the RHS of an edge statement and we only
+  -- allow directed edges in DOT diagrams of DSAs;
+  -- "l" is the edge's label's values, which need to be wrapped in an `AttrList`
+  -- and an `AList` to conform to the DOT grammar.
+  toDOT (MkLDDEdge from to l) =
+    EdgeStmt (NodeID (NameID from) Nothing)
+             (EdgeRHS [DiGrEdgeOp, (NodeID (NameID to) Nothing)])
+             (Just $ AttrList [AList [toDOT l]])
 
