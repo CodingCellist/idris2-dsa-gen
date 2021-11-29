@@ -144,4 +144,26 @@ data DDEdge : Type where
            -> (to   : Identifier)
            -> DDEdge
 
+||| Extract the assignment from an `AttrList` in an edge in a DSA.
+handleEdgeAttrList : DOT -> Maybe DOT
+handleEdgeAttrList (AttrList [AList [Assign v]]) =
+  Just (Assign v)
+handleEdgeAttrList _ = Nothing
+
+||| Extract the node name from a `NodeID`, ensuring its a valid Idris name.
+handleEdgeNodeID : DOT -> Maybe Identifier
+handleEdgeNodeID (NameID n)   = toIdentifier n
+handleEdgeNodeID (StringID n) = toIdentifier n
+handleEdgeNodeID _ = Nothing
+
+||| Convert an edge in DOT to an edge in a DSA. The DOT describes a valid edge
+||| iff it is a directed edge and it has a "label" in its attrlist.
+handleEdge : DOT -> Maybe (List DDEdge)
+handleEdge (EdgeStmt (NodeID n _) rhs (Just (AttrList a))) =
+  do a' <- handleEdgeAttrList (AttrList a)
+     ts <- handleAssignment a'
+     ?handleEdge_rhs_21
+
+handleEdge _ = Nothing
+
 
