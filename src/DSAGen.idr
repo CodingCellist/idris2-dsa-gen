@@ -32,3 +32,19 @@ dotDSATest = do Right ast <- readDOTFile "./ATM_example.gv"
                         do putStrLn "SUCCESS!!!"
                            putStrLn $ show $ toDOT dotDSA
 
+||| But sire, our troops!
+export
+goForGold : IO ()
+goForGold =
+  do Right ast <- readDOTFile "./ATM_example.gv"
+        | Left err => putStrLn "Couldn't get AST."
+     putStrLn "Got AST:"
+     putStrLn $ show ast
+     (Just dotDSA) <- pure $ toDOTDSA ast
+        | Nothing => putStrLn "AST was not a DOTDSA."
+     let dsa = toDSA dotDSA
+     putStrLn ""
+     putStrLn "Ĥ̷̤E̶̘̐ ̵̟͒C̴̝̐O̵͒ͅM̴͝ͅE̴̺̚S̷̹̃"
+     putStrLn ""
+     putStrLn $ unsafeGenIdris dsa
+
