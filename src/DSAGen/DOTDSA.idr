@@ -6,6 +6,7 @@ import Data.List
 import Data.List1
 import Data.Vect
 import Data.String
+import Data.SnocList
 
 %default total
 
@@ -204,27 +205,28 @@ handleEdge _ = Nothing
 export
 isDepEdge : String -> Bool
 isDepEdge s =
-   let cs = unpack s
-   in case span ((==) '(') cs of 
-           ([], _) => False
-           (_ , []) => False
-           (tName, (_ :: cs')) =>
-             case span ((==) ')') cs' of
-                  ([], _) => False
-                  (resName, _) => isValidIdrName tName && isValidIdrName resName
-
-export
-labelValOK : String -> Bool
-labelValOK v = (isValidIdrName . unpack) v || isDepEdge v
+  -- FIXME: fix words' totality
+  -- let cs = unpack $ concat (map trim (assert_total $ words s))  
+  let cs = unpack s
+  in case span (/= '(') cs of 
+         ([], _) => False
+         (_ , []) => False
+         (tName, (_ :: cs')) =>       -- ignore the '(' which is included by `span`
+             case Lin <>< cs' of
+                  resName :< ')' =>   -- check that we close the parenthesis
+                      isValidIdrName tName && isValidIdrName (toList resName)
+                  _ => False
 
 ||| Checks that the values given from `toLabel` are valid DSA values. Each
 ||| value is accepted iff it is a valid Idris name or it is a dependent edge.
 export
 labelValsOK : (vals : List String) -> {auto 0 ok : NonEmpty vals} -> Bool
 labelValsOK [] impossible
-labelValsOK [v] = labelValOK v
-labelValsOK (v :: (v' :: vs)) = labelValOK v && labelValsOK (v' :: vs)
---labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
+labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
+
+||| Remove the leading and trailing 
+cleanStringID : String -> String
+cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_  -- substr is 0-based
 
 ||| Convert the given DOT to a `Label`. Some DOT is a `Label` iff it is an
 ||| assignment from the name "label" to a StringID consisting of at least one
@@ -232,7 +234,7 @@ labelValsOK (v :: (v' :: vs)) = labelValOK v && labelValsOK (v' :: vs)
 export
 toLabel : DOT -> Maybe Label
 toLabel (Assign [NameID "label", StringID rawVals]) =
-  case split (== ',') rawVals of
+  case split (== ',') (cleanStringID rawVals) of
        (head ::: tail) =>
                let head' = trim head
                    tail' = map trim tail
@@ -270,7 +272,7 @@ DOTAble LDDEdge where
 export
 dotToIdentifier : DOT -> Maybe Identifier
 dotToIdentifier (NameID   n) = toIdentifier n
-dotToIdentifier (StringID s) = toIdentifier s
+dotToIdentifier (StringID s) = toIdentifier (cleanStringID s)
 dotToIdentifier _ = Nothing
 
 ||| Convert the given DOT to a `LDDEdge`. Some DOT is an edge in a DSA iff it
@@ -328,11 +330,10 @@ toDOTDSA2 (Graph False DiGraph (Just n) (StmtList [Stmt (EdgeStmt (NodeID f _) (
   do name <- pure $ dotToIdentifier n
      putStrLn $ "Name: " ++ show name
      putStrLn $ "Stmt: " ++ show (EdgeStmt (NodeID f Nothing) (EdgeRHS [DiGrEdgeOp, (NodeID t Nothing)]) (Just (AttrList [AList [(Assign [NameID "label", (StringID v)])]])))
---     es <- pure $ traverse handleStmt ([Stmt stmt])
---     putStrLn $ "Edgy af? " ++ (if isJust es then "Yes" else "No")
      putStrLn $ "f: " ++ show (dotToIdentifier f)
      putStrLn $ "t: " ++ show (dotToIdentifier t)
-     putStrLn $ "v=" ++ v
-     putStrLn $ "v: " ++ show (labelValOK v)
+     putStrLn $ "v=" ++ show v
+     putStrLn $ "v'=" ++ show (cleanStringID v)
+     putStrLn $ "v': " ++ show (isDepEdge (cleanStringID v))
 toDOTDSA2 _ = putStrLn "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH"
 

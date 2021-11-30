@@ -26,10 +26,10 @@ dotDSATest = do Right ast <- readDOTFile "./ATM_example.gv"
                 putStrLn "Got AST:"
                 putStrLn $ show ast
                 putStrLn "-- CONVERTING --"
-                toDOTDSA2 ast
---                case toDOTDSA ast of
---                     Nothing => putStrLn "AST is not a DOTDSA."
---                     (Just dotDSA) =>
---                        do putStrLn "SUCCESS!!!"
---                           putStrLn $ show $ toDOT dotDSA
+--                toDOTDSA2 ast
+                case toDOTDSA ast of
+                     Nothing => putStrLn "AST is not a DOTDSA."
+                     (Just dotDSA) =>
+                        do putStrLn "SUCCESS!!!"
+                           putStrLn $ show $ toDOT dotDSA
 
