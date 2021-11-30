@@ -255,6 +255,10 @@ genEdges (dde :: ddes) acc =
   let acc' = addEdge dde acc
   in genEdges ddes acc'
 
+||| Returns `True` iff the given `Edge`s have the same name.
+sameName : Edge -> Edge -> Bool
+sameName e1 e2 = (name e1) == (name e2)
+
 ||| Given a list of `Edge`s and an accumulator for dependent edges, separate
 ||| out the dependent edges from the first list and merge the `DepRes`'s of
 ||| edges starting at the same point.
@@ -263,13 +267,6 @@ combineDepEdges es depAcc =
   let (deps, regs) = partition isDepAction es
   in regs ++ mergeDepEdges' deps
   where
-    isDepAction : Edge -> Bool
-    isDepAction (RegAction _ _ _) = False
-    isDepAction (DepAction _ _ _) = True
-
-    sameName : Edge -> Edge -> Bool
-    sameName e1 e2 = (name e1) == (name e2)
-
     ||| Given a list of `Edge`s originating from the same point as `onto`,
     ||| extract their dependent results and add them to the dependent results of
     ||| `onto`.
@@ -291,6 +288,22 @@ combineDepEdges es depAcc =
       let (toMerge, rest) = partition (sameName de) des
       in combineDepRes toMerge de :: mergeDepEdges' (assert_smaller des rest)
                                                     -- ^ FIXME ?
+
+-- a transition t \in T is a universal transition iff
+-- \forall s \in S \exists t' \in T s.t.
+--   1) name t' === name t
+--   2) dest t' === s
+--isUniversalTransition : DSA -> Edge -> Bool
+--isUniversalTransition _ (DepAction _ _ _) = False
+--isUniversalTransition (MkDSA states edges) (RegAction n f t) =
+--  case partition isRegAction edges of
+--       ([], _) => False   -- no universal transition is a DepAction (I think)
+--       (regs, _) =>
+--          let scrutinees = filter (/= t) states
+--              candidates = filter (\e => name e == n) regs
+--          in case scrutinees of
+--                  [] => False
+--                  (s :: ss) => ?isUniversalTransition_rhs_5
 
 export
 DSADesc DOTDSA where

@@ -111,6 +111,17 @@ Show Edge where
   show (DepAction l from depTo) =
     show from ++ " --" ++ show l ++ "-->{ " ++ show depTo
 
+||| Returns `True` iff the given `Edge` is a dependent action.
+export
+isDepAction : Edge -> Bool
+isDepAction (RegAction _ _ _) = False
+isDepAction (DepAction _ _ _) = True
+
+||| Return `True` iff the given `Edge` is a regular action.
+export
+isRegAction : Edge -> Bool
+isRegAction = not . isDepAction
+
 ||| Given a list of edges, separate into a list of only regular edges and
 ||| only dependent edges respectively.
 sortEdges : (es : List Edge)
