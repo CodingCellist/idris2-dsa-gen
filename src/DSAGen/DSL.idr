@@ -11,6 +11,7 @@ data Label : Type where
   MkLabel : (label : String) -> Label
 
 ||| Two `Label`s are equal iff their internal strings are equal.
+export
 Eq Label where
   (==) (MkLabel l1) (MkLabel l2) = l1 == l2
 
@@ -26,6 +27,7 @@ data State : Type where
   MkState : Label -> State
 
 ||| Two `State`s are equal iff their `Label`s are equal.
+export
 Eq State where
   (==) (MkState l1) (MkState l2) = l1 == l2
 
@@ -50,6 +52,7 @@ getResName (MkDepRes resName _) = resName
 
 ||| Two dependent results are equal iff their result-names are equal and their
 ||| destinations are equal.
+export
 Eq DepRes where
   (==) (MkDepRes resName1 t1) (MkDepRes resName2 t2) =
     resName1 == resName2 && t1 == t2
@@ -62,16 +65,37 @@ Show DepRes where
 public export
 data Edge : Type where
   ||| A non-dependent transition between two states.
-  RegAction : Label -> (from : State) -> (to : State) -> Edge
+  RegAction : (name : Label) -> (from : State) -> (to : State) -> Edge
   ||| A dependent transition from a state to at least one other state.
-  DepAction : Label
-            -> (from : State)
+  DepAction :  (name  : Label)
+            -> (from  : State)
             -> (depTo : List DepRes)
-            -> {auto 0 ok : NonEmpty depTo}
+--            -> {auto 0 ok : NonEmpty depTo}
             -> Edge
+
+||| Extract the starting `State` of an `Edge`.
+export
+from : Edge -> State
+from (RegAction _ f _) = f
+from (DepAction _ f _) = f
+
+||| Extract the name of the given `Edge`.
+export
+name : Edge -> Label
+name (RegAction n _ _) = n
+name (DepAction n _ _) = n
+
+||| Extract the `DepRes` of the given `Edge`.
+||| /!\ Crashes if given a `RegAction` /!\
+export
+depTo : Edge -> List DepRes
+depTo (RegAction _ _ _) =
+  assert_total $ idris_crash "Got a RegAction in depTo."
+depTo (DepAction _ _ dt) = dt
 
 ||| Two `Edge`s are equal iff their labels, source, and destination(s) are
 ||| equal.
+export
 Eq Edge where
   (==) (RegAction l1 f1 t1) (RegAction l2 f2 t2) =
     l1 == l2 && f1 == f2 && t1 == t2
@@ -90,9 +114,10 @@ Show Edge where
 ||| Given a list of edges, separate into a list of only regular edges and
 ||| only dependent edges respectively.
 sortEdges : (es : List Edge)
-          -> {auto 0 ok : NonEmpty es}
+--          -> {auto 0 ok : NonEmpty es}
           -> (List Edge, List Edge)
-sortEdges [] impossible
+--sortEdges [] impossible
+sortEdges [] = ([], [])
 
 sortEdges (e@(RegAction l _ _) :: []) = ([e], [])
 
@@ -106,21 +131,35 @@ sortEdges (de@(DepAction l _ _) :: (e1 :: es)) =
   let (regs, deps) = sortEdges (e1 :: es)
   in (regs , de :: deps)
 
-
+||| Extract all the `DepRes`'s from the given list of `Edge`s.
+||| /!\ Crashes if the list contains a `RegAction` /!\
+export
 extractDepStates : List Edge -> List (List DepRes)
 extractDepStates [] = []
-extractDepStates ((RegAction l _ _) :: es) =
-  assert_total $ idris_crash "Got a RegAction in extractDepStates."
-extractDepStates ((DepAction l _ depTo) :: es) =
-  depTo :: extractDepStates es
+extractDepStates (e :: es) = depTo e :: extractDepStates es
+--extractDepStates ((RegAction l _ _) :: es) =
+--  assert_total $ idris_crash "Got a RegAction in extractDepStates."
+--extractDepStates ((DepAction l _ depTo) :: es) =
+--  depTo :: extractDepStates es
 
 ||| A DSA is simply a list of states and edges/actions.
 public export
 data DSA : Type where
   MkDSA :  (states : List State)
         -> (edges : List Edge)
-        -> {auto 0 ok : NonEmpty edges}
+--        -> {auto 0 ok : NonEmpty edges}
         -> DSA
+
+||| If `a` describes a Dependent State Automaton, there must be a mapping from
+||| `a` to `DSA`.
+public export
+interface DSADesc a where
+  toDSA : a -> DSA
+
+
+-----------------------------
+-- MAGIC STRING GENERATION --
+-----------------------------
 
 tabWidth : Nat
 tabWidth = 2
