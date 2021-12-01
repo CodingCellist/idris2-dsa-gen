@@ -3,6 +3,7 @@ module DSAGen.DOTDSA
 import Graphics.DOT
 
 import DSAGen.DSL
+import DSAGen.DSL2
 
 import Data.List
 import Data.List1
@@ -183,14 +184,24 @@ toDOTDSA _ = Nothing
 ||| from the `DDEdge` (the `DDEdge`'s `from` and `to`) are not already in the
 ||| list of existing `State`s, convert them to `State`s and add them to the
 ||| accumulator.
-addState : (dde : DDEdge) -> (acc : List State) -> List State
+addState : (dde : DDEdge) -> (acc : List DSL.State) -> List DSL.State
 addState (MkDDEdge from to _) acc =
   let fState = newState from
       tState = newState to
       acc' = addIfMissing fState acc
   in addIfMissing tState acc'
   where
-    addIfMissing : (s : State) -> (acc : List State) -> List State
+    addIfMissing : (s : DSL.State) -> (acc : List DSL.State) -> List DSL.State
+    addIfMissing s acc = if elem s acc then acc else s :: acc
+
+addState2 : (dde : DDEdge) -> (acc : List DSL2.State) -> List DSL2.State
+addState2 (MkDDEdge from to _) acc =
+  let fState = newState from
+      tState = newState to
+      acc' = addIfMissing fState acc
+  in addIfMissing tState acc'
+  where
+    addIfMissing : (s : DSL2.State) -> (acc : List DSL2.State) -> List DSL2.State
     addIfMissing s acc = if elem s acc then acc else s :: acc
 
 ||| Add all the unique `State`s resulting from `ddes` to the accumulator, if
@@ -198,11 +209,17 @@ addState (MkDDEdge from to _) acc =
 |||
 ||| @ ddes the list of `DDEdge`s to convert to `State`s and potentially add
 ||| @ acc  the accumulator of existing `State`s to check against for uniqueness
-genStates : (ddes : List DDEdge) -> (acc : List State) -> List State
+genStates : (ddes : List DDEdge) -> (acc : List DSL.State) -> List DSL.State
 genStates [] acc = acc
 genStates (dde :: ddes) acc =
   let acc' = addState dde acc
   in genStates ddes acc'
+
+genStates2 : (ddes : List DDEdge) -> (acc : List DSL2.State) -> List DSL2.State
+genStates2 [] acc = acc
+genStates2 (dde :: ddes) acc =
+  let acc' = addState2 dde acc
+  in genStates2 ddes acc'
 
 ||| Given a `DDEdge` and a list of existing `Edge`s, if the `Edge` resulting
 ||| from the `DDEdge` is not already in the list of existing `Edge`s, convert it
@@ -312,4 +329,106 @@ DSADesc DOTDSA where
         rawEdges  = genEdges  ddEdges []
         dsaEdges  = combineDepEdges rawEdges []
     in MkDSA dsaStates dsaEdges
+
+||| A representation of a DDEdge with only one (1) destination.
+data SingleDDEdge : Type where
+  MkSDDE :  (from : DDIdentifier)
+         -> (to   : DDIdentifier)
+         -> (name : Vect 1 String)
+         -> SingleDDEdge
+
+||| Partition the given list of `DDEdge`s into two lists: one containing the
+||| edges describing a dependent transition, and another containing the edges
+||| describing a regular transition.
+|||
+||| N.B.: Since multiple edges can be defined in one `DDEdge`'s "label", the
+||| resulting lists may have a combined length greater than the length of the
+||| input list.
+partitionDDEdges : (ddes : List DDEdge) -> (List SingleDDEdge, List SingleDDEdge)
+-- partitionDDEdges : (ddes : List DDEdge) -> (List DDEdge, List DDEdge)
+partitionDDEdges [] = ([], [])
+partitionDDEdges (dde :: ddes) =
+  let (deps     , regs    ) = splitEdge dde
+      (moreDeps , moreRegs) = unzipWith splitEdge ddes
+  -- combine all the lists of lists into one big list (for deps and regs respectively)
+  in ( deps ++ foldr (++) [] moreDeps
+     , regs ++ foldr (++) [] moreRegs )
+  where
+    ||| Split the label's values into dependent and regular values.
+    splitLabelVals :  (vals : Vect (S k) String)
+                   -> (acc  : (List String, List String))
+                   -> (List String, List String)
+    splitLabelVals (v :: []) (ds, rs) =
+      if isDepEdge v
+         then (v :: ds , rs     )
+         else (ds      , v :: rs)
+    splitLabelVals (v :: vs@(_ :: _)) (ds, rs) =
+      if isDepEdge v
+         then let acc' = (v :: ds , rs     ) in splitLabelVals vs acc'
+         else let acc' = (ds      , v :: rs) in splitLabelVals vs acc'
+
+    ||| Split a single DDEdge into potentially multiple edges: dependent edges
+    ||| and regular edges.
+    splitEdge : DDEdge -> (List SingleDDEdge, List SingleDDEdge)
+    -- splitEdge : DDEdge -> (List DDEdge, List DDEdge)
+    splitEdge (MkDDEdge from to (MkDDLabel vals)) =
+      let (depVals, regVals) = splitLabelVals vals ([], [])
+          partialDDEdge = \s => MkSDDE from to [s]
+      in (map partialDDEdge depVals, map partialDDEdge regVals)
+
+||| Convert a DDEdge describing a single regular edge to a `RegEdge`.
+toRegEdge : (regDDE : SingleDDEdge) -> RegEdge
+toRegEdge (MkSDDE from to (name :: [])) =
+  let nameLbl   = DSL2.MkLabel name
+      fromState = DSL2.newState from
+      toState   = DSL2.newState to
+  in MkRegEdge nameLbl fromState toState
+
+||| Convert a DDEdge describing a single dependent edge to a `DepEdge`.
+toDepEdge : (depDDE : SingleDDEdge) -> DepEdge
+toDepEdge (MkSDDE from to (depLbl :: [])) =
+  let (name, depRes) = splitDepLabel depLbl
+      fromState = DSL2.newState from
+  in MkDepEdge name fromState [depRes]
+  where
+    ||| Split the given label into the name of the transition, and the name of
+    ||| the result it depends on.
+    splitDepLabel : (lbl : String) -> (DSL2.Label, DSL2.DepRes)
+    splitDepLabel lbl =
+      let (name, rest) = span (/= '(') lbl
+          resName = substr 1 ((length rest) `minus` 2) rest
+          toState = DSL2.newState to
+      in (MkLabel name, MkDepRes resName toState)
+
+||| Returns `True` iff the given `DepEdge`s have the same name.
+deHaveSameName : DepEdge -> DepEdge -> Bool
+deHaveSameName (MkDepEdge n1 _ _) (MkDepEdge n2 _ _) = n1 == n2
+
+||| Combine the given dependent edges' `DepRes`'s into a single `DepEdge` with
+||| all the results, using `theDE` as a starting point.
+combineDepEdgesUsing : (theDE : DepEdge) -> (des : List DepEdge) -> DepEdge
+combineDepEdgesUsing (MkDepEdge name from dt) des =
+  let otherDRs = map depTo des
+      allDRs = dt ++ foldr (++) [] otherDRs
+  in MkDepEdge name from allDRs
+
+||| Combine the given list of unprocessed dependent edges into a list of
+||| `DepEdge`s s.t. all edges with the same name have had their `DepRes`'s
+||| combined.
+combineDepEdges2 : (rawDEs : List DepEdge) -> List DepEdge
+combineDepEdges2 [] = []
+combineDepEdges2 (rde :: rdes) =
+  let (toCombine, rest) = partition (deHaveSameName rde) rdes
+      -- acc' = (combineDepEdgesUsing rde toCombine) :: acc
+      combined = combineDepEdgesUsing rde toCombine
+  in combined :: combineDepEdges2 (assert_smaller rdes rest)
+
+export
+DSA2Desc DOTDSA where
+  toDSA2 (DSAGraph name ddEdges) =
+    let dsa2States = genStates2 ddEdges []
+        (rawDEs, rawREs) = partitionDDEdges ddEdges
+        regEdges = map toRegEdge rawREs
+        depEdges = combineDepEdges2 $ map toDepEdge rawDEs
+    in MkDSA2 name dsa2States regEdges depEdges
 

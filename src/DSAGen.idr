@@ -47,9 +47,9 @@ goForGold =
      putStrLn $ show ast
      (Just dotDSA) <- pure $ toDOTDSA ast
         | Nothing => putStrLn "AST was not a DOTDSA."
-     let dsa = toDSA dotDSA
+     let dsa = toDSA2 dotDSA
      putStrLn ""
      putStrLn "Ĥ̷̤E̶̘̐ ̵̟͒C̴̝̐O̵͒ͅM̴͝ͅE̴̺̚S̷̹̃"
      putStrLn ""
-     putStrLn $ unsafeGenIdris dsa
+     putStrLn $ unsafeGenIdris2 dsa
 

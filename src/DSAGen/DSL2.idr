@@ -243,7 +243,7 @@ data DSA2 : Type where
 ||| `a` to `DSA`.
 public export
 interface DSA2Desc a where
-  toDSA : a -> DSA2
+  toDSA2 : a -> DSA2
 
 
 -----------------------------
