@@ -15,6 +15,7 @@ depends = dot-parse
 -- modules to install
 modules = DSAGen
         , DSAGen.DSL
+        , DSAGen.DOTDSA
 
 -- main file (i.e. file to load at REPL)
 main = DSAGen
