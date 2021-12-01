@@ -1,6 +1,6 @@
 module DSAGen
 
-import DSAGen.DSL2
+import DSAGen.DSL
 import DSAGen.DOTDSA
 
 import Graphics.DOT
@@ -9,10 +9,6 @@ import System.File
 import Text.Lexer.Core
 
 -- Unsafe generation from the raw DSL to magic strings
---- atmTest : IO ()
---- atmTest = do let str = unsafeGenIdris atm
----              putStrLn str
-
 atmTest : IO ()
 atmTest = do let str = unsafeGenIdris atm
              putStrLn str
