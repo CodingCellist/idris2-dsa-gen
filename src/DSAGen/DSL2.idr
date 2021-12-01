@@ -61,68 +61,6 @@ Eq DepRes where
 Show DepRes where
   show (MkDepRes resName to) = "(" ++ resName ++ ") => " ++ show to
 
---- ||| An edge is either a regular action from s1 to s2, or a dependent action
---- ||| which has a label and a list of dependent results and the state they go to.
---- public export
---- data Edge : Type where
----   ||| A non-dependent transition between two states.
----   RegAction : (name : Label) -> (from : State) -> (to : State) -> Edge
----   ||| A dependent transition from a state to at least one other state.
----   DepAction :  (name  : Label)
----             -> (from  : State)
----             -> (depTo : List DepRes)
---- --            -> {auto 0 ok : NonEmpty depTo}
----             -> Edge
---- 
---- ||| Extract the starting `State` of an `Edge`.
---- export
---- from : Edge -> State
---- from (RegAction _ f _) = f
---- from (DepAction _ f _) = f
---- 
---- ||| Extract the name of the given `Edge`.
---- export
---- name : Edge -> Label
---- name (RegAction n _ _) = n
---- name (DepAction n _ _) = n
---- 
---- ||| Extract the `DepRes` of the given `Edge`.
---- ||| /!\ Crashes if given a `RegAction` /!\
---- export
---- depTo : Edge -> List DepRes
---- depTo (RegAction _ _ _) =
----   assert_total $ idris_crash "Got a RegAction in depTo."
---- depTo (DepAction _ _ dt) = dt
---- 
---- ||| Two `Edge`s are equal iff their labels, source, and destination(s) are
---- ||| equal.
---- export
---- Eq Edge where
----   (==) (RegAction l1 f1 t1) (RegAction l2 f2 t2) =
----     l1 == l2 && f1 == f2 && t1 == t2
---- 
----   (==) (DepAction l1 f1 t1) (DepAction l2 f2 t2) =
----     l1 == l2 && f1 == f2 && t1 == t2
---- 
----   (==) _ _ = False
---- 
---- Show Edge where
----   show (RegAction l from to) =
----     show from ++  " --" ++ show l ++ "--> " ++ show to
----   show (DepAction l from depTo) =
----     show from ++ " --" ++ show l ++ "-->{ " ++ show depTo
---- 
---- ||| Returns `True` iff the given `Edge` is a dependent action.
---- export
---- isDepAction : Edge -> Bool
---- isDepAction (RegAction _ _ _) = False
---- isDepAction (DepAction _ _ _) = True
---- 
---- ||| Return `True` iff the given `Edge` is a regular action.
---- export
---- isRegAction : Edge -> Bool
---- isRegAction = not . isDepAction
-
 public export
 data RegEdge : Type where
   MkRegEdge :  (name : Label)
@@ -192,58 +130,19 @@ Show DepEdge where
   show (MkDepEdge name from depTo) =
     show from ++ " --" ++ show name ++ "-->{ " ++ show depTo ++ " }"
 
---- ||| Given a list of edges, separate into a list of only regular edges and
---- ||| only dependent edges respectively.
---- sortEdges : (es : List Edge)
---- --          -> {auto 0 ok : NonEmpty es}
----           -> (List Edge, List Edge)
---- --sortEdges [] impossible
---- sortEdges [] = ([], [])
---- 
---- sortEdges (e@(RegAction l _ _) :: []) = ([e], [])
---- 
---- sortEdges (de@(DepAction l _ _) :: []) = ([], [de])
---- 
---- sortEdges (e@(RegAction l _ _) :: (e1 :: es)) =
----   let (regs, deps) = sortEdges (e1 :: es)
----   in (e :: regs , deps)
---- 
---- sortEdges (de@(DepAction l _ _) :: (e1 :: es)) =
----   let (regs, deps) = sortEdges (e1 :: es)
----   in (regs , de :: deps)
---- 
---- ||| Extract all the `DepRes`'s from the given list of `Edge`s.
---- ||| /!\ Crashes if the list contains a `RegAction` /!\
---- export
---- extractDepStates : List Edge -> List (List DepRes)
---- extractDepStates [] = []
---- extractDepStates (e :: es) = depTo e :: extractDepStates es
---- --extractDepStates ((RegAction l _ _) :: es) =
---- --  assert_total $ idris_crash "Got a RegAction in extractDepStates."
---- --extractDepStates ((DepAction l _ depTo) :: es) =
---- --  depTo :: extractDepStates es
---- 
---- ||| A DSA is simply a list of states and edges/actions.
---- public export
---- data DSA : Type where
----   MkDSA :  (states : List State)
----         -> (edges : List Edge)
---- --        -> {auto 0 ok : NonEmpty edges}
----         -> DSA
-
 public export
-data DSA2 : Type where
-  MkDSA2 :  (dsaName  : String)
-         -> (states   : List State)
-         -> (regEdges : List RegEdge)
-         -> (depEdges : List DepEdge)
-         -> DSA2
+data DSA : Type where
+  MkDSA :  (dsaName  : String)
+        -> (states   : List State)
+        -> (regEdges : List RegEdge)
+        -> (depEdges : List DepEdge)
+        -> DSA
 
 ||| If `a` describes a Dependent State Automaton, there must be a mapping from
 ||| `a` to `DSA`.
 public export
-interface DSA2Desc a where
-  toDSA2 : a -> DSA2
+interface DSADesc a where
+  toDSA : a -> DSA
 
 
 -----------------------------
@@ -256,28 +155,16 @@ tabWidth = 2
 indent : String
 indent = pack $ replicate tabWidth ' '
 
---- -- `Pure` is always defined in the same way
---- dsaPure : String
---- dsaPure = indent ++ "Pure : (res : ty) -> Cmd ty (state_fn res) state_fn"
---- 
---- -- Bind is always defined in the same way
---- dsaBind : String
---- dsaBind =
----   indent
----   ++ "(>>=) : Cmd a state1 state2_fn" ++ "\n" ++ indent
----   ++ "      -> ((res : a) -> Cmd b (state2_fn res) state3_fn)" ++ "\n" ++ indent
----   ++ "      -> Cmd b state1 state3_fn"
-
 ||| `Pure` is always defined the same way, but requires the name of the DSA to
 ||| make sense (because the name is part of the name of the `Cmd` type)
-dsa2Pure : DSA2 -> String
-dsa2Pure (MkDSA2 dsaName  _ _ _) =
+dsaPure : DSA -> String
+dsaPure (MkDSA dsaName  _ _ _) =
   indent ++ "Pure : (res : ty) -> " ++ dsaName  ++ "Cmd ty (state_fn res) state_fn"
 
 ||| `Bind` is always defined the same way, but requires the name of the DSA to
 ||| make sense (because the name is part of the name of the `Cmd` type)
-dsa2Bind : DSA2 -> String
-dsa2Bind (MkDSA2 dsaName  _ _ _) =
+dsaBind : DSA -> String
+dsaBind (MkDSA dsaName  _ _ _) =
   let cmdName = dsaName ++ "Cmd"
   in indent
      ++ "(>>=) :  " ++ cmdName  ++ " a state1 state2_fn" ++ "\n" ++ indent
@@ -287,15 +174,15 @@ dsa2Bind (MkDSA2 dsaName  _ _ _) =
 ||| Naïvely generate Idris source by magically outputting the right string.
 ||| /!\ EXTREMELY FRAGILE /!\
 export
-unsafeGenIdris2 : DSA2 -> String
-unsafeGenIdris2 dsa@(MkDSA2 dsaName states regEdges depEdges) =
+unsafeGenIdris : DSA -> String
+unsafeGenIdris dsa@(MkDSA dsaName states regEdges depEdges) =
   let statesStr  = genStates states
       depResData = genDepResData depEdges
       cmdDecln   = genCmdHeader
       regCmds    = genRegCmds regEdges
       depCmds    = genDepCmds depEdges
-      pureCmd    = dsa2Pure dsa
-      bindCmd    = dsa2Bind dsa
+      pureCmd    = dsaPure dsa
+      bindCmd    = dsaBind dsa
   in lineSeparate [ "-- /!\\ UNSAFELY GENERATED /!\\ -- "
                   , statesStr
                   , depResData
@@ -374,91 +261,6 @@ unsafeGenIdris2 dsa@(MkDSA2 dsaName states regEdges depEdges) =
          ++ " -> " ++ "(ty -> " ++ stateName ++ ")"
          ++ " -> Type where"
 
---- ||| Naïvely generate Idris source by magically outputting the right string.
---- ||| EXTREMELY FRAGILE!
---- export
---- unsafeGenIdris : DSA -> String
---- unsafeGenIdris (MkDSA states edges) =
----   let
----     -- first: create a data-type containing every state
----     statesStr = genStates states
----     -- then, separate the regular from the dependent actions
----     (regs, deps) = sortEdges edges
----     -- second: create a data-type for each of the dependent results, with
----     --         constructors for each alternative
----     depResStr = lineSeparate $ handleDepStates deps
----     -- third: define `Cmd` data-type containing all the transitions as
----     -- constructors
----     cmdDataStr = genCmds regs deps
----   in
----     lineSeparate ["-- UNSAFELY GENERATED! --"
----                  , statesStr
----                  , depResStr
----                  , cmdDataStr
----                  , dsaPure
----                  , dsaBind
----                  ]
----   where
----     -- Data.String.Extra.join
----     lineSeparate : List String -> String
----     lineSeparate xs = join "\n\n" xs
---- 
----     -- generate a `State` data-type whose constructors are each of the possible
----     -- states in the DSA
----     genStates : List State -> String
----     genStates states =
----       "data State = " ++ (join " | " $ map show states)
---- 
----     -- generate a data-type for each DepAction's result type, containing
----     -- constructors for each of the 
----     handleDepStates : List Edge -> List String
----     handleDepStates [] = []
----     handleDepStates ((RegAction _ _ _) :: es) =
----       assert_total $ idris_crash "Got a RegAction in handleDepStates."
----     handleDepStates ((DepAction l from depTo) :: es) =
----       ("data " ++ show l ++ "Res = " ++ (join " | " $ map getResName depTo))
----       :: handleDepStates es
---- 
----     -- regular commands have a name, and always use `const <to>` as their
----     -- `state_fn`
----     genRegCmds : List Edge -> String
----     genRegCmds [] = ""
----     genRegCmds ((RegAction l from to) :: es) =
----       indent
----       ++ show l ++ " : Cmd () " ++ show from ++ " (const " ++ show to ++ ")"
----       ++ "\n" ++ genRegCmds es
----     genRegCmds ((DepAction _ _ _) :: es) =
----       assert_total $ idris_crash "Got a DepAction in genRegCmds."
---- 
----     -- cases in a dependent state function have the form
----     -- <ResName> => <destState>
----     genDepStateCases : List DepRes -> List String
----     genDepStateCases [] = []
----     genDepStateCases ((MkDepRes resName to) :: es) =
----       (resName ++ " => " ++ show to) :: genDepStateCases es
---- 
----     -- dependent commands occur **exactly once** per labelled transition, the
----     -- changing step is that their `state_fn` is an anonymous function to
----     -- various states
----     genDepCmds : List Edge -> String
----     genDepCmds [] = ""
----     genDepCmds ((RegAction _ _ _) :: es) =
----       assert_total $ idris_crash "Got a RegAction in genDepCmds"
----     genDepCmds ((DepAction l from depTo) :: es) =
----       indent
----       ++ show l ++ " : Cmd " ++ show l ++ "Res " ++ show from
----       ++ " (\\depRes => case depRes of " ++ (join "; " $ genDepStateCases depTo)
----       ++ ")\n" ++ genDepCmds es
---- 
----     -- generate the `Cmd` data-type, by generating the regular commands first,
----     -- followed by the dependent commands
----     genCmds : (regs : List Edge) -> (deps : List Edge) -> String
----     genCmds regs deps =
----       "data Cmd : (ty : Type) -> State -> (ty -> State) -> Type where"
----       ++ "\n"
----       ++ genRegCmds regs
----       ++ genDepCmds deps
-
 -----------------------------
 -- EXAMPLE DSA (TDD Ch.14) --
 -----------------------------
@@ -500,9 +302,9 @@ anyS1 = MkRegEdge (MkLabel "EjectCard") any atm_s1
 -- s3s1 = RegAction (MkLabel "EjectCard") atm_s3 atm_s1
 
 export
-atm : DSA2
-atm = MkDSA2 "ATM"
-             [atm_s1, atm_s2, atm_s3]
-             [s1s2, s2s2, s3s3, anyS1]
-             [s2dep]
+atm : DSA
+atm = MkDSA "ATM"
+            [atm_s1, atm_s2, atm_s3]
+            [s1s2, s2s2, s3s3, anyS1]
+            [s2dep]
 

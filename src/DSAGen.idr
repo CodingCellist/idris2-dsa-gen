@@ -1,6 +1,5 @@
 module DSAGen
 
-import DSAGen.DSL
 import DSAGen.DSL2
 import DSAGen.DOTDSA
 
@@ -10,13 +9,13 @@ import System.File
 import Text.Lexer.Core
 
 -- Unsafe generation from the raw DSL to magic strings
+--- atmTest : IO ()
+--- atmTest = do let str = unsafeGenIdris atm
+---              putStrLn str
+
 atmTest : IO ()
 atmTest = do let str = unsafeGenIdris atm
              putStrLn str
-
-atmTest2 : IO ()
-atmTest2 = do let str = unsafeGenIdris2 atm
-              putStrLn str
 
 export
 dotTest : IO ()
@@ -47,9 +46,9 @@ goForGold =
      putStrLn $ show ast
      (Just dotDSA) <- pure $ toDOTDSA ast
         | Nothing => putStrLn "AST was not a DOTDSA."
-     let dsa = toDSA2 dotDSA
+     let dsa = toDSA dotDSA
      putStrLn ""
      putStrLn "Ĥ̷̤E̶̘̐ ̵̟͒C̴̝̐O̵͒ͅM̴͝ͅE̴̺̚S̷̹̃"
      putStrLn ""
-     putStrLn $ unsafeGenIdris2 dsa
+     putStrLn $ unsafeGenIdris dsa
 

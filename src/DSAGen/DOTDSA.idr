@@ -2,7 +2,6 @@ module DSAGen.DOTDSA
 
 import Graphics.DOT
 
-import DSAGen.DSL
 import DSAGen.DSL2
 
 import Data.List
@@ -180,155 +179,155 @@ toDOTDSA _ = Nothing
 -- DOTDSA ==> DSA --
 --------------------
 
-||| Given a `DDEdge` and a list of existing `State`s, if the `State`s resulting
-||| from the `DDEdge` (the `DDEdge`'s `from` and `to`) are not already in the
-||| list of existing `State`s, convert them to `State`s and add them to the
-||| accumulator.
-addState : (dde : DDEdge) -> (acc : List DSL.State) -> List DSL.State
-addState (MkDDEdge from to _) acc =
-  let fState = newState from
-      tState = newState to
-      acc' = addIfMissing fState acc
-  in addIfMissing tState acc'
-  where
-    addIfMissing : (s : DSL.State) -> (acc : List DSL.State) -> List DSL.State
-    addIfMissing s acc = if elem s acc then acc else s :: acc
+--- ||| Given a `DDEdge` and a list of existing `State`s, if the `State`s resulting
+--- ||| from the `DDEdge` (the `DDEdge`'s `from` and `to`) are not already in the
+--- ||| list of existing `State`s, convert them to `State`s and add them to the
+--- ||| accumulator.
+--- addState : (dde : DDEdge) -> (acc : List DSL.State) -> List DSL.State
+--- addState (MkDDEdge from to _) acc =
+---   let fState = newState from
+---       tState = newState to
+---       acc' = addIfMissing fState acc
+---   in addIfMissing tState acc'
+---   where
+---     addIfMissing : (s : DSL.State) -> (acc : List DSL.State) -> List DSL.State
+---     addIfMissing s acc = if elem s acc then acc else s :: acc
+--- 
+--- ||| Add all the unique `State`s resulting from `ddes` to the accumulator, if
+--- ||| they are not already in the accumulator (see also `addState`).
+--- |||
+--- ||| @ ddes the list of `DDEdge`s to convert to `State`s and potentially add
+--- ||| @ acc  the accumulator of existing `State`s to check against for uniqueness
+--- genStates : (ddes : List DDEdge) -> (acc : List DSL.State) -> List DSL.State
+--- genStates [] acc = acc
+--- genStates (dde :: ddes) acc =
+---   let acc' = addState dde acc
+---   in genStates ddes acc'
+--- 
+--- ||| Given a `DDEdge` and a list of existing `Edge`s, if the `Edge` resulting
+--- ||| from the `DDEdge` is not already in the list of existing `Edge`s, convert it
+--- ||| to an `Edge` and add the resulting `Edge` to the accumulator.
+--- addEdge : (dde : DDEdge) -> (acc : List Edge) -> List Edge
+--- addEdge (MkDDEdge from to (MkDDLabel vals)) acc =
+---   let edges = map (toEdge from to) vals
+---   in addEdge' (toList edges) acc
+---   where
+---     addIfMissing : (e : Edge) -> (acc : List Edge) -> List Edge
+---     addIfMissing e acc = if elem e acc then acc else e :: acc
+--- 
+---     addEdge' : (es : List Edge) -> (acc : List Edge) -> List Edge
+---     addEdge' [] acc = acc
+---     addEdge' (e :: es) acc =
+---       let acc' = addIfMissing e acc
+---       in addEdge' es acc'
+--- 
+---     ||| Given a value representing a dependent action, split off the name of the
+---     ||| action and its dependent result.
+---     splitDepAction : (val : String) -> (String, String)
+---     splitDepAction val =
+---       let -- strip the parentheses from the value
+---           (actName, rest) = span (/= '(') val
+---           resName = substr 1 ((length rest) `minus` 2) rest
+---       in (actName, resName)
+--- 
+---     ||| Given the 'from', the 'to', and a 'label' from a `DDEdge`, decide
+---     ||| whether the 'label' represents a dependent edge or a regular edge and
+---     ||| convert it as appropriate.
+---     toEdge : (f : String) -> (t : String) -> (val : String) -> Edge
+---     toEdge f t val =
+---       let tState = newState t
+---           fState = newState f
+---       in if isDepEdge val
+---             then let (actName, resName) = splitDepAction val
+---                      actLbl = MkLabel actName
+---                      depRes = MkDepRes resName tState
+---                  in DepAction actLbl fState [depRes]
+---             else RegAction (MkLabel val) fState tState
+--- 
+--- ||| Add all the unique `Edge`s resulting from `ddes` to the accumulator, if
+--- ||| they are not already in the accumulator (see also `addEdge`).
+--- |||
+--- ||| @ ddes the list of `DDEdge`s to convert to `Edge`s and potentially add
+--- ||| @ acc  the accumulator of existing `Edge`s to check against for uniqueness
+--- genEdges : (ddes : List DDEdge) -> (acc : List Edge) -> List Edge
+--- genEdges [] acc = acc
+--- genEdges (dde :: ddes) acc =
+---   let acc' = addEdge dde acc
+---   in genEdges ddes acc'
+--- 
+--- ||| Returns `True` iff the given `Edge`s have the same name.
+--- sameName : Edge -> Edge -> Bool
+--- sameName e1 e2 = (name e1) == (name e2)
+--- 
+--- ||| Given a list of `Edge`s and an accumulator for dependent edges, separate
+--- ||| out the dependent edges from the first list and merge the `DepRes`'s of
+--- ||| edges starting at the same point.
+--- combineDepEdges : (es : List Edge) -> (depAcc : List Edge) -> List Edge
+--- combineDepEdges es depAcc =
+---   let (deps, regs) = partition isDepAction es
+---   in regs ++ mergeDepEdges' deps
+---   where
+---     ||| Given a list of `Edge`s originating from the same point as `onto`,
+---     ||| extract their dependent results and add them to the dependent results of
+---     ||| `onto`.
+---     combineDepRes : (es : List Edge) -> (onto : Edge) -> Edge
+---     combineDepRes [] onto = onto
+---     combineDepRes es onto =
+---       let nm = name onto
+---           fromState = from onto
+---           dt = depTo onto
+---           depTos = extractDepStates es
+---           combined = foldr (++) dt depTos
+---       in DepAction (name onto) (from onto) combined
+--- 
+---     ||| Take the first dependent edge, find all its partners and merge them,
+---     ||| then handle the rest of the list if there is anything left.
+---     mergeDepEdges' : (deps : List Edge) -> List Edge
+---     mergeDepEdges' [] = []
+---     mergeDepEdges' (de :: des) =
+---       let (toMerge, rest) = partition (sameName de) des
+---       in combineDepRes toMerge de :: mergeDepEdges' (assert_smaller des rest)
+---                                                     -- ^ FIXME ?
+--- 
+--- -- a transition t \in T is a universal transition iff
+--- -- \forall s \in S \exists t' \in T s.t.
+--- --   1) name t' === name t
+--- --   2) dest t' === s
+--- --isUniversalTransition : DSA -> Edge -> Bool
+--- --isUniversalTransition _ (DepAction _ _ _) = False
+--- --isUniversalTransition (MkDSA states edges) (RegAction n f t) =
+--- --  case partition isRegAction edges of
+--- --       ([], _) => False   -- no universal transition is a DepAction (I think)
+--- --       (regs, _) =>
+--- --          let scrutinees = filter (/= t) states
+--- --              candidates = filter (\e => name e == n) regs
+--- --          in case scrutinees of
+--- --                  [] => False
+--- --                  (s :: ss) => ?isUniversalTransition_rhs_5
+--- 
+--- export
+--- DSADesc DOTDSA where
+---   toDSA (DSAGraph name ddEdges) =   -- TODO: name is currently discarded
+---     let dsaStates = genStates ddEdges []
+---         rawEdges  = genEdges  ddEdges []
+---         dsaEdges  = combineDepEdges rawEdges []
+---     in MkDSA dsaStates dsaEdges
 
-addState2 : (dde : DDEdge) -> (acc : List DSL2.State) -> List DSL2.State
+addState2 : (dde : DDEdge) -> (acc : List State) -> List State
 addState2 (MkDDEdge from to _) acc =
   let fState = newState from
       tState = newState to
       acc' = addIfMissing fState acc
   in addIfMissing tState acc'
   where
-    addIfMissing : (s : DSL2.State) -> (acc : List DSL2.State) -> List DSL2.State
+    addIfMissing : (s : State) -> (acc : List State) -> List State
     addIfMissing s acc = if elem s acc then acc else s :: acc
 
-||| Add all the unique `State`s resulting from `ddes` to the accumulator, if
-||| they are not already in the accumulator (see also `addState`).
-|||
-||| @ ddes the list of `DDEdge`s to convert to `State`s and potentially add
-||| @ acc  the accumulator of existing `State`s to check against for uniqueness
-genStates : (ddes : List DDEdge) -> (acc : List DSL.State) -> List DSL.State
-genStates [] acc = acc
-genStates (dde :: ddes) acc =
-  let acc' = addState dde acc
-  in genStates ddes acc'
-
-genStates2 : (ddes : List DDEdge) -> (acc : List DSL2.State) -> List DSL2.State
+genStates2 : (ddes : List DDEdge) -> (acc : List State) -> List State
 genStates2 [] acc = acc
 genStates2 (dde :: ddes) acc =
   let acc' = addState2 dde acc
   in genStates2 ddes acc'
-
-||| Given a `DDEdge` and a list of existing `Edge`s, if the `Edge` resulting
-||| from the `DDEdge` is not already in the list of existing `Edge`s, convert it
-||| to an `Edge` and add the resulting `Edge` to the accumulator.
-addEdge : (dde : DDEdge) -> (acc : List Edge) -> List Edge
-addEdge (MkDDEdge from to (MkDDLabel vals)) acc =
-  let edges = map (toEdge from to) vals
-  in addEdge' (toList edges) acc
-  where
-    addIfMissing : (e : Edge) -> (acc : List Edge) -> List Edge
-    addIfMissing e acc = if elem e acc then acc else e :: acc
-
-    addEdge' : (es : List Edge) -> (acc : List Edge) -> List Edge
-    addEdge' [] acc = acc
-    addEdge' (e :: es) acc =
-      let acc' = addIfMissing e acc
-      in addEdge' es acc'
-
-    ||| Given a value representing a dependent action, split off the name of the
-    ||| action and its dependent result.
-    splitDepAction : (val : String) -> (String, String)
-    splitDepAction val =
-      let -- strip the parentheses from the value
-          (actName, rest) = span (/= '(') val
-          resName = substr 1 ((length rest) `minus` 2) rest
-      in (actName, resName)
-
-    ||| Given the 'from', the 'to', and a 'label' from a `DDEdge`, decide
-    ||| whether the 'label' represents a dependent edge or a regular edge and
-    ||| convert it as appropriate.
-    toEdge : (f : String) -> (t : String) -> (val : String) -> Edge
-    toEdge f t val =
-      let tState = newState t
-          fState = newState f
-      in if isDepEdge val
-            then let (actName, resName) = splitDepAction val
-                     actLbl = MkLabel actName
-                     depRes = MkDepRes resName tState
-                 in DepAction actLbl fState [depRes]
-            else RegAction (MkLabel val) fState tState
-
-||| Add all the unique `Edge`s resulting from `ddes` to the accumulator, if
-||| they are not already in the accumulator (see also `addEdge`).
-|||
-||| @ ddes the list of `DDEdge`s to convert to `Edge`s and potentially add
-||| @ acc  the accumulator of existing `Edge`s to check against for uniqueness
-genEdges : (ddes : List DDEdge) -> (acc : List Edge) -> List Edge
-genEdges [] acc = acc
-genEdges (dde :: ddes) acc =
-  let acc' = addEdge dde acc
-  in genEdges ddes acc'
-
-||| Returns `True` iff the given `Edge`s have the same name.
-sameName : Edge -> Edge -> Bool
-sameName e1 e2 = (name e1) == (name e2)
-
-||| Given a list of `Edge`s and an accumulator for dependent edges, separate
-||| out the dependent edges from the first list and merge the `DepRes`'s of
-||| edges starting at the same point.
-combineDepEdges : (es : List Edge) -> (depAcc : List Edge) -> List Edge
-combineDepEdges es depAcc =
-  let (deps, regs) = partition isDepAction es
-  in regs ++ mergeDepEdges' deps
-  where
-    ||| Given a list of `Edge`s originating from the same point as `onto`,
-    ||| extract their dependent results and add them to the dependent results of
-    ||| `onto`.
-    combineDepRes : (es : List Edge) -> (onto : Edge) -> Edge
-    combineDepRes [] onto = onto
-    combineDepRes es onto =
-      let nm = name onto
-          fromState = from onto
-          dt = depTo onto
-          depTos = extractDepStates es
-          combined = foldr (++) dt depTos
-      in DepAction (name onto) (from onto) combined
-
-    ||| Take the first dependent edge, find all its partners and merge them,
-    ||| then handle the rest of the list if there is anything left.
-    mergeDepEdges' : (deps : List Edge) -> List Edge
-    mergeDepEdges' [] = []
-    mergeDepEdges' (de :: des) =
-      let (toMerge, rest) = partition (sameName de) des
-      in combineDepRes toMerge de :: mergeDepEdges' (assert_smaller des rest)
-                                                    -- ^ FIXME ?
-
--- a transition t \in T is a universal transition iff
--- \forall s \in S \exists t' \in T s.t.
---   1) name t' === name t
---   2) dest t' === s
---isUniversalTransition : DSA -> Edge -> Bool
---isUniversalTransition _ (DepAction _ _ _) = False
---isUniversalTransition (MkDSA states edges) (RegAction n f t) =
---  case partition isRegAction edges of
---       ([], _) => False   -- no universal transition is a DepAction (I think)
---       (regs, _) =>
---          let scrutinees = filter (/= t) states
---              candidates = filter (\e => name e == n) regs
---          in case scrutinees of
---                  [] => False
---                  (s :: ss) => ?isUniversalTransition_rhs_5
-
-export
-DSADesc DOTDSA where
-  toDSA (DSAGraph name ddEdges) =   -- TODO: name is currently discarded
-    let dsaStates = genStates ddEdges []
-        rawEdges  = genEdges  ddEdges []
-        dsaEdges  = combineDepEdges rawEdges []
-    in MkDSA dsaStates dsaEdges
 
 ||| A representation of a DDEdge with only one (1) destination.
 data SingleDDEdge : Type where
@@ -379,25 +378,25 @@ partitionDDEdges (dde :: ddes) =
 ||| Convert a DDEdge describing a single regular edge to a `RegEdge`.
 toRegEdge : (regDDE : SingleDDEdge) -> RegEdge
 toRegEdge (MkSDDE from to (name :: [])) =
-  let nameLbl   = DSL2.MkLabel name
-      fromState = DSL2.newState from
-      toState   = DSL2.newState to
+  let nameLbl   = MkLabel name
+      fromState = newState from
+      toState   = newState to
   in MkRegEdge nameLbl fromState toState
 
 ||| Convert a DDEdge describing a single dependent edge to a `DepEdge`.
 toDepEdge : (depDDE : SingleDDEdge) -> DepEdge
 toDepEdge (MkSDDE from to (depLbl :: [])) =
   let (name, depRes) = splitDepLabel depLbl
-      fromState = DSL2.newState from
+      fromState = newState from
   in MkDepEdge name fromState [depRes]
   where
     ||| Split the given label into the name of the transition, and the name of
     ||| the result it depends on.
-    splitDepLabel : (lbl : String) -> (DSL2.Label, DSL2.DepRes)
+    splitDepLabel : (lbl : String) -> (Label, DepRes)
     splitDepLabel lbl =
       let (name, rest) = span (/= '(') lbl
           resName = substr 1 ((length rest) `minus` 2) rest
-          toState = DSL2.newState to
+          toState = newState to
       in (MkLabel name, MkDepRes resName toState)
 
 ||| Returns `True` iff the given `DepEdge`s have the same name.
@@ -415,20 +414,20 @@ combineDepEdgesUsing (MkDepEdge name from dt) des =
 ||| Combine the given list of unprocessed dependent edges into a list of
 ||| `DepEdge`s s.t. all edges with the same name have had their `DepRes`'s
 ||| combined.
-combineDepEdges2 : (rawDEs : List DepEdge) -> List DepEdge
-combineDepEdges2 [] = []
-combineDepEdges2 (rde :: rdes) =
+combineDepEdges : (rawDEs : List DepEdge) -> List DepEdge
+combineDepEdges [] = []
+combineDepEdges (rde :: rdes) =
   let (toCombine, rest) = partition (deHaveSameName rde) rdes
       -- acc' = (combineDepEdgesUsing rde toCombine) :: acc
       combined = combineDepEdgesUsing rde toCombine
-  in combined :: combineDepEdges2 (assert_smaller rdes rest)
+  in combined :: combineDepEdges (assert_smaller rdes rest)
 
 export
-DSA2Desc DOTDSA where
-  toDSA2 (DSAGraph name ddEdges) =
-    let dsa2States = genStates2 ddEdges []
+DSADesc DOTDSA where
+  toDSA (DSAGraph name ddEdges) =
+    let dsaStates = genStates2 ddEdges []
         (rawDEs, rawREs) = partitionDDEdges ddEdges
         regEdges = map toRegEdge rawREs
-        depEdges = combineDepEdges2 $ map toDepEdge rawDEs
-    in MkDSA2 name dsa2States regEdges depEdges
+        depEdges = combineDepEdges $ map toDepEdge rawDEs
+    in MkDSA name dsaStates regEdges depEdges
 
