@@ -1,6 +1,7 @@
 module DSAGen
 
 import DSAGen.DSL
+import DSAGen.DSL2
 import DSAGen.DOTDSA
 
 import Graphics.DOT
@@ -12,6 +13,10 @@ import Text.Lexer.Core
 atmTest : IO ()
 atmTest = do let str = unsafeGenIdris atm
              putStrLn str
+
+atmTest2 : IO ()
+atmTest2 = do let str = unsafeGenIdris2 atm
+              putStrLn str
 
 export
 dotTest : IO ()
