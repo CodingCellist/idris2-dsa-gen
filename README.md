@@ -24,61 +24,70 @@ atm_s2 = MkState (MkLabel "CardInserted")
 atm_s3 : State
 atm_s3 = MkState (MkLabel "Session")
 
-s1s2 : Edge
-s1s2 = RegAction (MkLabel "InsertCard") atm_s1 atm_s2
+s1s2 : RegEdge
+s1s2 = MkRegEdge (MkLabel "InsertCard") atm_s1 atm_s2
 
-s2s2 : Edge
-s2s2 = RegAction (MkLabel "GetPIN") atm_s2 atm_s2
+s2s2 : RegEdge
+s2s2 = MkRegEdge (MkLabel "GetPIN") atm_s2 atm_s2
 
-s2dep : Edge
-s2dep = DepAction (MkLabel "CheckPin")
+s2dep : DepEdge
+s2dep = MkDepEdge (MkLabel "CheckPin")
                   atm_s2
                   [MkDepRes "Incorrect" atm_s2, MkDepRes "Correct" atm_s3]
 
-s3s3 : Edge
-s3s3 = RegAction (MkLabel "Dispense") atm_s3 atm_s3
+s3s3 : RegEdge
+s3s3 = MkRegEdge (MkLabel "Dispense") atm_s3 atm_s3
 
-anyS1 : Edge
-anyS1 = RegAction (MkLabel "EjectCard") any atm_s1
+anyS1 : RegEdge
+anyS1 = MkRegEdge (MkLabel "EjectCard") any atm_s1
 
 export
 atm : DSA
-atm = MkDSA [atm_s1, atm_s2, atm_s3]
-            [s1s2, s2s2, s2dep, s3s3, anyS1]
+atm = MkDSA "ATM"
+            [atm_s1, atm_s2, atm_s3]
+            [s1s2, s2s2, s3s3, anyS1]
+            [s2dep]
 ```
 
 and then used to generate Idris through the (currently unsafe) `unsafeGenIdris`
 function, resulting in the following output:
 
 ```bash
-$ idris2 -p contrib DSAGen.idr --exec atmTest
+$ idris2 -p contrib -p dot-parse DSAGen.idr --exec atmTest
 ```
 
 ```idris
--- UNSAFELY GENERATED! --
+-- /!\ UNSAFELY GENERATED /!\ -- 
 
-data State = Ready | CardInserted | Session
+data ATMState = Ready | CardInserted | Session
 
 data CheckPinRes = Incorrect | Correct
 
-data Cmd : (ty : Type) -> State -> (ty -> State) -> Type where
-  InsertCard : Cmd () Ready (const CardInserted)
-  GetPIN : Cmd () CardInserted (const CardInserted)
-  Dispense : Cmd () Session (const Session)
-  EjectCard : Cmd () state (const Ready)
-  CheckPin : Cmd CheckPinRes CardInserted (\depRes => case depRes of Incorrect => CardInserted; Correct => Session)
+data ATMCmd : (ty : Type)  -> ATMState -> (ty -> ATMState) -> Type where
+
+  InsertCard : ATMCmd () Ready (const CardInserted)
+  GetPIN : ATMCmd () CardInserted (const CardInserted)
+  Dispense : ATMCmd () Session (const Session)
+  EjectCard : ATMCmd () state (const Ready)
 
 
-  Pure : (res : ty) -> Cmd ty (state_fn res) state_fn
+  CheckPin : ATMCmd CheckPinRes CardInserted (\depRes => case depRes of Incorrect => CardInserted; Correct => Session)
 
-  (>>=) : Cmd a state1 state2_fn
-        -> ((res : a) -> Cmd b (state2_fn res) state3_fn)
-        -> Cmd b state1 state3_fn
+
+  Pure : (res : ty) -> ATMCmd ty (state_fn res) state_fn
+
+  (>>=) :  ATMCmd a state1 state2_fn
+        -> ((res : a) -> ATMCmd b (state2_fn res) state3_fn)
+        -> ATMCmd b state1 state3_fn
 ```
 
 It is not the prettiest, but it type-checks and you would be able to program
 parts of Ch 14 using the result.
 
-# License
+Generating Idris source code from `.gv` files is almost done. There are just
+some wrinkles in terms of multiple transitions (e.g. a transition that can be
+done from any state) which I need to iron out. Soon (TM).
+
+# LICENSE
 This work is licensed under GPL-2.0.
 
