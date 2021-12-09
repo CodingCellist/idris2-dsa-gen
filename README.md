@@ -9,69 +9,47 @@ for these based on a DOT (`.gv`) file.
 
 # Does it work?
 
-Yes! The following example (from the TDD book, Ch 14), can be modelled:
+Yes! Generating Idris source code from `.gv` files is ~~almost~~ done! The
+following example (from the TDD book, Ch 14) can be modelled in DOT:
 
-```idris
-any : State
-any = MkState (MkLabel "state")
-
-atm_s1 : State
-atm_s1 = MkState (MkLabel "Ready")
-
-atm_s2 : State
-atm_s2 = MkState (MkLabel "CardInserted")
-
-atm_s3 : State
-atm_s3 = MkState (MkLabel "Session")
-
-s1s2 : RegEdge
-s1s2 = MkRegEdge (MkLabel "InsertCard") atm_s1 atm_s2
-
-s2s2 : RegEdge
-s2s2 = MkRegEdge (MkLabel "GetPIN") atm_s2 atm_s2
-
-s2dep : DepEdge
-s2dep = MkDepEdge (MkLabel "CheckPin")
-                  atm_s2
-                  [MkDepRes "Incorrect" atm_s2, MkDepRes "Correct" atm_s3]
-
-s3s3 : RegEdge
-s3s3 = MkRegEdge (MkLabel "Dispense") atm_s3 atm_s3
-
-anyS1 : RegEdge
-anyS1 = MkRegEdge (MkLabel "EjectCard") any atm_s1
-
-export
-atm : DSA
-atm = MkDSA "ATM"
-            [atm_s1, atm_s2, atm_s3]
-            [s1s2, s2s2, s3s3, anyS1]
-            [s2dep]
+```dot
+digraph atm {
+    Ready -> CardInserted [label="InsertCard"];
+    CardInserted -> Ready [label="EjectCard"];
+    CardInserted -> CardInserted [label="GetPIN, CheckPIN(Incorrect)"];
+    CardInserted -> Session [label="CheckPIN(Correct)"];
+    Session -> Session [label="Dispense"];
+    Session -> Ready [label="EjectCard"];
+}
 ```
 
-and then used to generate Idris through the (currently unsafe) `unsafeGenIdris`
-function, resulting in the following output:
+Which means you can generate a graph of the program and its states:
+![A diagram showing the states and transitions of the ATM from TDD Ch 14](examples/ATM_example.svg)
+
+**HOWEVER** you can then _also_ use the DOT-code/-model to generate Idris
+through the (currently unsafe) `unsafeGenIdris` function, resulting in the
+following output:
 
 ```bash
-$ idris2 -p contrib -p dot-parse DSAGen.idr --exec atmTest
+$ idris2 -p contrib -p dot-parse DSAGen.idr --exec fullATMTest
 ```
 
 ```idris
 -- /!\ UNSAFELY GENERATED /!\ -- 
 
-data ATMState = Ready | CardInserted | Session
+data ATMState = Session | CardInserted | Ready
 
-data CheckPinRes = Incorrect | Correct
+data CheckPINRes = Incorrect | Correct
 
 data ATMCmd : (ty : Type)  -> ATMState -> (ty -> ATMState) -> Type where
 
+  EjectCard : ATMCmd () anyState (const Ready)
   InsertCard : ATMCmd () Ready (const CardInserted)
   GetPIN : ATMCmd () CardInserted (const CardInserted)
   Dispense : ATMCmd () Session (const Session)
-  EjectCard : ATMCmd () state (const Ready)
 
 
-  CheckPin : ATMCmd CheckPinRes CardInserted (\depRes => case depRes of Incorrect => CardInserted; Correct => Session)
+  CheckPIN : ATMCmd CheckPINRes CardInserted (\depRes => case depRes of Incorrect => CardInserted; Correct => Session)
 
 
   Pure : (res : ty) -> ATMCmd ty (state_fn res) state_fn
@@ -82,11 +60,7 @@ data ATMCmd : (ty : Type)  -> ATMState -> (ty -> ATMState) -> Type where
 ```
 
 It is not the prettiest, but it type-checks and you would be able to program
-parts of Ch 14 using the result.
-
-Generating Idris source code from `.gv` files is almost done. There are just
-some wrinkles in terms of multiple transitions (e.g. a transition that can be
-done from any state) which I need to iron out. Soon (TM).
+parts of Ch 14 using the result!
 
 # LICENSE
 This work is licensed under GPL-2.0.
