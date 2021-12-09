@@ -48,3 +48,13 @@ goForGold =
      putStrLn ""
      putStrLn $ unsafeGenIdris dsa
 
+export
+fullATMTest : IO ()
+fullATMTest =
+  do Right ast <- readDOTFile "./ATM_example.gv"
+        | Left err => putStrLn "Couldn't get AST."
+     (Just dotDSA) <- pure $ toDOTDSA ast
+        | Nothing => putStrLn "AST was not a DOTDSA."
+     let dsa = toDSA dotDSA
+     putStrLn $ unsafeGenIdris dsa
+
