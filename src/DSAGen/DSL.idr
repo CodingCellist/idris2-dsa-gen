@@ -41,6 +41,11 @@ export
 newState : (name : String) -> State
 newState = MkState . MkLabel
 
+public export
+||| A special `State` which denotes a variable state, i.e. any state
+AnyState : State
+AnyState = newState "anyState"
+
 ||| A dependent result has an identifier (name of the result) and a state it
 ||| goes to.
 public export

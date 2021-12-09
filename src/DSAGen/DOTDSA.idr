@@ -288,12 +288,74 @@ combineDepEdges (rde :: rdes) =
       combined = combineDepEdgesUsing rde toCombine
   in combined :: combineDepEdges (assert_smaller rdes rest)
 
+||| A `RegEdge` is a universal edge candidate wrt. the given `RegEdge` iff the
+||| two have the same name and destination/to `State`, but **different**
+||| origins/from `State`s.
+isUECandidate : (re : RegEdge) -> (cand : RegEdge) -> Bool
+isUECandidate (MkRegEdge n1 f1 t1) (MkRegEdge n2 f2 t2) =
+  n1 == n2 && f1 /= f2 && t1 == t2
+
+||| Filter the universal edge candidates.
+|||
+||| A universal edge candidate is an edge which has the same name as the given
+||| regular edge, but which doesn't originate from the same `State`
+export
+filterUECands : (re : RegEdge) -> List RegEdge -> List RegEdge
+filterUECands re es =
+  filter (isUECandidate re) es
+
+||| A regular edge is a universal edge iff there exists as many universal edge
+||| candidates (see `isUECandidate`) as there are states in the DSA.
+|||
+||| The logic for this is that if you have as many regular edges with the same
+||| name and destination as the potential universal edge, but all starting at
+||| different edges, then you can always travel along that edge no matter the
+||| current state, and so the edge is a universal edge.
+isUniversalEdge : (re : RegEdge) -> (es : List RegEdge) -> (dsaStates : List State) -> Bool
+isUniversalEdge re@(MkRegEdge _ _ to) es dsaStates =
+  let cands = filterUECands re es
+      destState = filter (== to) dsaStates
+      -- remember that we have extracted one candidate: the `re`
+      nCands = length cands + 1
+      nStates = length dsaStates
+  in nStates == nCands            -- EITHER we have as many states as candidates
+     || (length destState == 1    -- OR we better only have one destination...
+          && (minus nStates 1 == nCands)) -- ...which is the one we're going to
+
+||| Convert a regular edge to a universal edge: Replace the edge's `from` with
+||| `AnyState`.
+toUniversalEdge : (re : RegEdge) -> RegEdge
+toUniversalEdge (MkRegEdge name _ to) = MkRegEdge name AnyState to
+
+||| Partition the given list of regular edges into a list containing the
+||| universal edges, a list containing the remaining regular edges
+export
+partitionUniversalEdges :  (regEs : List RegEdge)
+                        -> (dsaStates : List State)
+                        -> (List RegEdge, List RegEdge)
+partitionUniversalEdges [] _ = ([], [])
+partitionUniversalEdges (re :: res) dsaStates =
+  if isUniversalEdge re res dsaStates
+     then let ue = toUniversalEdge re
+              -- keep only the edges that weren't UE candidates, since we have
+              -- replaced the others with a single UE
+              rest = filter (\e => not $ isUECandidate re e) res
+              -- handle the potential remainder
+              (recUEs, recREs) =
+                partitionUniversalEdges (assert_smaller (re :: res) rest) dsaStates
+          in (ue :: recUEs, recREs)
+
+     else let (recUEs, recREs) = partitionUniversalEdges res dsaStates
+          in (recUEs, re :: recREs)
+
 export
 DSADesc DOTDSA where
   toDSA (DSAGraph name ddEdges) =
-    let dsaStates = genStates2 ddEdges []
+    let dsaName = toUpper name
+        dsaStates = genStates2 ddEdges []
         (rawDEs, rawREs) = partitionDDEdges ddEdges
-        regEdges = map toRegEdge rawREs
+        (ues, res) = partitionUniversalEdges (map toRegEdge rawREs) dsaStates
+        regEdges = ues ++ res
         depEdges = combineDepEdges $ map toDepEdge rawDEs
-    in MkDSA name dsaStates regEdges depEdges
+    in MkDSA dsaName dsaStates regEdges depEdges
 
