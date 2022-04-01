@@ -6,11 +6,11 @@ license = "GPL-2.0"
 -- brief =
 -- readme =
 -- homepage =
--- sourceloc =
--- bugtracker =
+sourceloc = "https://github.com/CodingCellist/idris2-dsa-gen"
+bugtracker = "https://github.com/CodingCellist/idris2-dsa-gen/issues"
 
 -- packages to add to search path
-depends = dot-parse
+depends = contrib, dot-parse
 
 -- modules to install
 modules = DSAGen
@@ -22,7 +22,7 @@ main = DSAGen
 
 -- name of executable
 -- executable =
-opts = "-p contrib"
+-- opts =
 sourcedir = "src"
 -- builddir =
 -- outputdir =

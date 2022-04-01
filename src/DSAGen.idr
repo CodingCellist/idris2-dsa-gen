@@ -1,7 +1,7 @@
 module DSAGen
 
-import DSAGen.DSL
-import DSAGen.DOTDSA
+import public DSAGen.DSL
+import public DSAGen.DOTDSA
 
 import Graphics.DOT
 

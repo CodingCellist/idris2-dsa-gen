@@ -179,8 +179,8 @@ toDOTDSA _ = Nothing
 -- DOTDSA ==> DSA --
 --------------------
 
-addState2 : (dde : DDEdge) -> (acc : List State) -> List State
-addState2 (MkDDEdge from to _) acc =
+addState : (dde : DDEdge) -> (acc : List State) -> List State
+addState (MkDDEdge from to _) acc =
   let fState = newState from
       tState = newState to
       acc' = addIfMissing fState acc
@@ -189,11 +189,11 @@ addState2 (MkDDEdge from to _) acc =
     addIfMissing : (s : State) -> (acc : List State) -> List State
     addIfMissing s acc = if elem s acc then acc else s :: acc
 
-genStates2 : (ddes : List DDEdge) -> (acc : List State) -> List State
-genStates2 [] acc = acc
-genStates2 (dde :: ddes) acc =
-  let acc' = addState2 dde acc
-  in genStates2 ddes acc'
+genStates : (ddes : List DDEdge) -> (acc : List State) -> List State
+genStates [] acc = acc
+genStates (dde :: ddes) acc =
+  let acc' = addState dde acc
+  in genStates ddes acc'
 
 ||| A representation of a DDEdge with only one (1) destination.
 data SingleDDEdge : Type where
@@ -352,7 +352,7 @@ export
 DSADesc DOTDSA where
   toDSA (DSAGraph name ddEdges) =
     let dsaName = toUpper name
-        dsaStates = genStates2 ddEdges []
+        dsaStates = genStates ddEdges []
         (rawDEs, rawREs) = partitionDDEdges ddEdges
         (ues, res) = partitionUniversalEdges (map toRegEdge rawREs) dsaStates
         regEdges = ues ++ res
