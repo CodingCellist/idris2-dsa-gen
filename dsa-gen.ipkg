@@ -1,5 +1,5 @@
 package dsa-gen
--- version =
+version = 0.1.0
 authors = "Thomas E. Hansen"
 -- maintainers =
 license = "GPL-2.0"
