@@ -17,28 +17,10 @@ export
 interface DOTAble a where
   toDOT : a -> DOT
 
--- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
-||| Labels are lists of at least one string.
-export
-data DDLabel : Type where
-  MkDDLabel : (vals : Vect (S k) String) -> DDLabel
 
-export
-DOTAble DDLabel where
-  toDOT (MkDDLabel vals) =
-    -- each of the values must be comma-separated
-    let valStr = foldr1 (++) $ intersperse ", " vals
-    in Assign [(NameID "label"), (StringID valStr)]
-
--- FIXME: is this the right name for this?
-export
-DDIdentifier : Type
-DDIdentifier = String
-
-export
-DOTAble DDIdentifier where
-  -- i never contains spaces (FIXME: assumption), so no need to use `StringID`
-  toDOT i = NameID i
+----------------------
+-- Util and filters --
+----------------------
 
 ||| A valid Idris name is at least one aplhabetical character followed by a
 ||| number of alphanumerical or underscore characters.
@@ -72,6 +54,34 @@ labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
 cleanStringID : String -> String
 cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
                              -- substr is 0-based  ^
+
+
+---------------------------------------
+-- Datatypes and conversion from DOT --
+---------------------------------------
+
+-- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
+||| Labels are lists of at least one string.
+export
+data DDLabel : Type where
+  MkDDLabel : (vals : Vect (S k) String) -> DDLabel
+
+export
+DOTAble DDLabel where
+  toDOT (MkDDLabel vals) =
+    -- each of the values must be comma-separated
+    let valStr = foldr1 (++) $ intersperse ", " vals
+    in Assign [(NameID "label"), (StringID valStr)]
+
+-- FIXME: is this the right name for this?
+export
+DDIdentifier : Type
+DDIdentifier = String
+
+export
+DOTAble DDIdentifier where
+  -- i never contains spaces (FIXME: assumption), so no need to use `StringID`
+  toDOT i = NameID i
 
 ||| Convert the given DOT to a `Label`. Some DOT is a `Label` iff it is an
 ||| assignment from the name "label" to a StringID consisting of at least one
