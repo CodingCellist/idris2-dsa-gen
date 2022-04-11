@@ -61,7 +61,7 @@ dotDSATest = do Right ast <- readDOTFile "./ATM_example.gv"
                      Nothing => putStrLn "AST is not a DOTDSA."
                      (Just dotDSA) =>
                         do putStrLn "SUCCESS!!!"
-                           putStrLn $ show $ toDOT dotDSA
+                           putStrLn $ show $ toGraph dotDSA
 
 ||| But sire, our troops!
 export

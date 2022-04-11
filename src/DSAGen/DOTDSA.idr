@@ -12,11 +12,6 @@ import Data.SnocList
 
 %default total
 
--- TODO: Should possibly be an interface in `dot-parse`?
-export
-interface DOTAble a where
-  toDOT : a -> DOT
-
 
 ----------------------
 -- Util and filters --
@@ -67,11 +62,11 @@ data DDLabel : Type where
   MkDDLabel : (vals : Vect (S k) String) -> DDLabel
 
 export
-DOTAble DDLabel where
-  toDOT (MkDDLabel vals) =
+DOTAssign DDLabel where
+  toAssign (MkDDLabel vals) =
     -- each of the values must be comma-separated
     let valStr = foldr1 (++) $ intersperse ", " vals
-    in Assign [(NameID "label"), (StringID valStr)]
+    in MkAssign (NameID "label") (StringID valStr)
 
 -- FIXME: is this the right name for this?
 export
@@ -79,16 +74,17 @@ DDIdentifier : Type
 DDIdentifier = String
 
 export
-DOTAble DDIdentifier where
+DOTDOTID DDIdentifier where
   -- i never contains spaces (FIXME: assumption), so no need to use `StringID`
-  toDOT i = NameID i
+  toDOTID i = NameID i
 
-||| Convert the given DOT to a `Label`. Some DOT is a `Label` iff it is an
-||| assignment from the name "label" to a StringID consisting of at least one
-||| valid transition (see `labelValsOK` for more details on what that means).
+||| Convert the given DOT assignment to a `DDLabel`. Some DOT is a `DDLabel` iff
+||| it is an assignment from the name "label" to a StringID consisting of at
+||| least one valid transition (see `labelValsOK` for more details on what that
+||| means).
 export
-toDDLabel : DOT -> Maybe DDLabel
-toDDLabel (Assign [NameID "label", StringID rawVals]) =
+toDDLabel : Assign -> Maybe DDLabel
+toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
   case split (== ',') (cleanStringID rawVals) of
        (head ::: tail) =>
                let head' = trim head
@@ -111,47 +107,52 @@ data DDEdge : Type where
            -> DDEdge
 
 export
-DOTAble DDEdge where
+DOTStmt DDEdge where
   -- "from" is the id of a node;
   -- same with "to", but it is part of the RHS of an edge statement and we only
   -- allow directed edges in DOT diagrams of DSAs;
   -- "l" is the edge's label's values, which need to be wrapped in an `AttrList`
   -- and an `AList` to conform to the DOT grammar.
-  toDOT (MkDDEdge from to label) =
-    EdgeStmt (NodeID (NameID from) Nothing)
-             (EdgeRHS [DiGrEdgeOp, (NodeID (NameID to) Nothing)])
-             (Just $ AttrList [AList [toDOT label]])
+  toStmt (MkDDEdge from to label) =
+    EdgeStmt (Left (MkNodeID (toDOTID from) Nothing))
+             ((MkEdgeRHS Arrow (Left (MkNodeID (NameID to) Nothing))) ::: [])
+             ([[toAssign label]])
 
 ||| Returns the given string in a `Just` iff it is a valid Idris name.
 toIdentifier : (s : String) -> Maybe DDIdentifier
 toIdentifier s = toMaybe (isValidIdrName $ unpack s) s
 
-||| Convert the given DOT to an identifier. Some DOT is an identifier iff it
-||| is either a NameID or a StringID, and if that ID is a valid Idris name.
+||| Convert the given DOTID to a `DDIdentifier`. Some DOTID is a `DDIdentifier`
+||| iff it is either a NameID or a StringID, and if that ID is a valid Idris
+||| name.
 export
-dotToIdentifier : DOT -> Maybe DDIdentifier
+dotToIdentifier : DOTID -> Maybe DDIdentifier
 dotToIdentifier (NameID   n) = toIdentifier n
 dotToIdentifier (StringID s) = toIdentifier (cleanStringID s)
 dotToIdentifier _ = Nothing
 
-||| Convert the given DOT to a `LDDEdge`. Some DOT is an edge in a DSA iff it
-||| goes from a `NodeID` to a `NodeID` using a directed edge, with a single
-||| attribute detailing the labelling of the edge.
+||| Convert the given DOT statement to a `LDDEdge`. Some statement is an edge in
+||| a DSA iff it goes from a `NodeID` to a `NodeID` using a directed edge, with
+||| a single attribute detailing the labelling of the edge.
+|||
+||| @ stmt the statement to convert
 export
-toDDEdge : DOT -> Maybe DDEdge
-toDDEdge (EdgeStmt (NodeID f _) (EdgeRHS [DiGrEdgeOp, (NodeID t _)]) (Just (AttrList [AList [attr]]))) =
-  do from <- dotToIdentifier f
-     to <- dotToIdentifier t
-     ddLabel <- toDDLabel attr
-     pure (MkDDEdge from to ddLabel)
-
+toDDEdge : (stmt : Stmt) -> Maybe DDEdge
+toDDEdge (EdgeStmt (Left (MkNodeID f _)) ((MkEdgeRHS Arrow (Left (MkNodeID t _))) ::: []) [[attr]]) =
+   do from <- dotToIdentifier f
+      to <- dotToIdentifier t
+      ddLabel <- toDDLabel attr
+      pure (MkDDEdge from to ddLabel)
+ 
 toDDEdge _ = Nothing
 
 ||| Convert a DOT statement to a part of a DOTDSA. The statement is valid in the
 ||| DSA iff it is a `Stmt` containing an `EdgeStmt`.
+|||
+||| @ stmt the statement to convert
 export
-handleStmt : DOT -> Maybe DDEdge
-handleStmt (Stmt (EdgeStmt f rhs attrList)) = toDDEdge (EdgeStmt f rhs attrList)
+handleStmt : Stmt -> Maybe DDEdge
+handleStmt (EdgeStmt f rhs attrList) = toDDEdge (EdgeStmt f rhs attrList)
 handleStmt _ = Nothing
 
 ||| A slightly more restricted version of DOT for easier conversion to a DSA.
@@ -163,20 +164,20 @@ data DOTDSA : Type where
              -> DOTDSA
 
 export
-DOTAble DOTDSA where
+DOTGraph DOTDSA where
   -- A DOTDSA is non-strict, directed graph;
   -- which _does_ have a name;
   -- and whose statements are a list of edge-statements, each of which needs to
   -- be wrapped in a `Stmt` to conform to the DOT grammar.
-  toDOT (DSAGraph name edges) =
-    Graph False DiGraph
-          (Just (NameID name))
-          (StmtList (Stmt <$> map toDOT edges))
+  toGraph (DSAGraph name edges) =
+    MkGraph (Just StrictKW) DigraphKW
+            (Just (NameID name))
+            (map toStmt edges)
 
-||| Convert the given `DOT` to the subset `DOTDSA`, which describes a DSA.
+||| Convert the given DOT Graph to the subset `DOTDSA`, which describes a DSA.
 export
-toDOTDSA : DOT -> Maybe DOTDSA
-toDOTDSA (Graph False DiGraph (Just n) (StmtList stmts)) =
+toDOTDSA : Graph -> Maybe DOTDSA
+toDOTDSA (MkGraph (Just StrictKW) DigraphKW (Just n) stmts) =
   do name <- dotToIdentifier n
      (e :: es) <- traverse handleStmt stmts
         | [] => Nothing
