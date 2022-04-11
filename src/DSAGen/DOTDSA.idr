@@ -177,7 +177,7 @@ DOTGraph DOTDSA where
 ||| Convert the given DOT Graph to the subset `DOTDSA`, which describes a DSA.
 export
 toDOTDSA : Graph -> Maybe DOTDSA
-toDOTDSA (MkGraph (Just StrictKW) DigraphKW (Just n) stmts) =
+toDOTDSA (MkGraph Nothing DigraphKW (Just n) stmts) =
   do name <- dotToIdentifier n
      (e :: es) <- traverse handleStmt stmts
         | [] => Nothing
