@@ -75,8 +75,7 @@ isDepEdge s =
 
 ||| Checks that the values given from `toLabel` are valid DSA values. Each
 ||| value is accepted iff it is a valid Idris name or it is a dependent edge.
-labelValsOK : (vals : List String) -> {auto 0 ok : NonEmpty vals} -> Bool
-labelValsOK [] impossible
+labelValsOK : (vals : List1 String) -> Bool
 labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
 
 ||| Remove the leading and trailing '"' of the `str` contained in a DOT's `StringID`.
@@ -100,7 +99,7 @@ toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
        (head ::: tail) =>
                let head' = trim head
                    tail' = map trim tail
-               in if labelValsOK (head' :: tail')
+               in if labelValsOK (head' ::: tail')
                      then Just $ MkDDLabel (fromList (head' :: tail'))
                      else Nothing
 
