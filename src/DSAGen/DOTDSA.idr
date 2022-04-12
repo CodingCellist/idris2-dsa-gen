@@ -85,21 +85,9 @@ cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
                              -- substr is 0-based  ^
 
 
----------------------------------------
--- Interfaces and conversion from DOT --
----------------------------------------
-
-export
-DOTAssign DDLabel where
-  toAssign (MkDDLabel vals) =
-    -- each of the values must be comma-separated
-    let valStr = foldr1 (++) $ intersperse ", " vals
-    in MkAssign (NameID "label") (StringID valStr)
-
-export
-DOTDOTID DDIdentifier where
-  -- i never contains spaces (FIXME: assumption), so no need to use `StringID`
-  toDOTID i = NameID i
+--------------------
+-- DOT ==> DOTDSA --
+--------------------
 
 ||| Convert the given DOT assignment to a `DDLabel`. Some DOT is a `DDLabel` iff
 ||| it is an assignment from the name "label" to a StringID consisting of at
@@ -118,18 +106,6 @@ toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
 
 toDDLabel _ = Nothing
 
-
-export
-DOTStmt DDEdge where
-  -- "from" is the id of a node;
-  -- same with "to", but it is part of the RHS of an edge statement and we only
-  -- allow directed edges in DOT diagrams of DSAs;
-  -- "l" is the edge's label's values, which need to be wrapped in an `AttrList`
-  -- and an `AList` to conform to the DOT grammar.
-  toStmt (MkDDEdge from to label) =
-    EdgeStmt (Left (MkNodeID (toDOTID from) Nothing))
-             ((MkEdgeRHS Arrow (Left (MkNodeID (NameID to) Nothing))) ::: [])
-             ([[toAssign label]])
 
 ||| Returns the given string in a `Just` iff it is a valid Idris name.
 toIdentifier : (s : String) -> Maybe DDIdentifier
@@ -168,16 +144,6 @@ handleStmt : Stmt -> Maybe DDEdge
 handleStmt (EdgeStmt f rhs attrList) = toDDEdge (EdgeStmt f rhs attrList)
 handleStmt _ = Nothing
 
-export
-DOTGraph DOTDSA where
-  -- A DOTDSA is non-strict, directed graph;
-  -- which _does_ have a name;
-  -- and whose statements are a list of edge-statements, each of which needs to
-  -- be wrapped in a `Stmt` to conform to the DOT grammar.
-  toGraph (DSAGraph name edges) =
-    MkGraph (Just StrictKW) DigraphKW
-            (Just (NameID name))
-            (map toStmt edges)
 
 ||| Convert the given DOT Graph to the subset `DOTDSA`, which describes a DSA.
 export
@@ -189,6 +155,46 @@ toDOTDSA (MkGraph Nothing DigraphKW (Just n) stmts) =
      pure (DSAGraph name (e :: es))
 
 toDOTDSA _ = Nothing
+
+
+-----------------------------------
+-- Interfaces for DOTDSA ==> DOT --
+-----------------------------------
+
+export
+DOTAssign DDLabel where
+  toAssign (MkDDLabel vals) =
+    -- each of the values must be comma-separated
+    let valStr = foldr1 (++) $ intersperse ", " vals
+    in MkAssign (NameID "label") (StringID valStr)
+
+export
+DOTDOTID DDIdentifier where
+  -- i never contains spaces (FIXME: assumption), so no need to use `StringID`
+  toDOTID i = NameID i
+
+export
+DOTStmt DDEdge where
+  -- "from" is the id of a node;
+  -- same with "to", but it is part of the RHS of an edge statement and we only
+  -- allow directed edges in DOT diagrams of DSAs;
+  -- "l" is the edge's label's values, which need to be wrapped in an `AttrList`
+  -- and an `AList` to conform to the DOT grammar.
+  toStmt (MkDDEdge from to label) =
+    EdgeStmt (Left (MkNodeID (toDOTID from) Nothing))
+             ((MkEdgeRHS Arrow (Left (MkNodeID (NameID to) Nothing))) ::: [])
+             ([[toAssign label]])
+
+export
+DOTGraph DOTDSA where
+  -- A DOTDSA is non-strict, directed graph;
+  -- which _does_ have a name;
+  -- and whose statements are a list of edge-statements, each of which needs to
+  -- be wrapped in a `Stmt` to conform to the DOT grammar.
+  toGraph (DSAGraph name edges) =
+    MkGraph (Just StrictKW) DigraphKW
+            (Just (NameID name))
+            (map toStmt edges)
 
 
 --------------------
