@@ -5,19 +5,18 @@ import Data.String.Extra
 
 %default total
 
+--------------------------------------------------------------------------------
+-- DEPENDENT STATE AUTOMATA --
+--------------------------------------------------------------------------------
+
+---------------
+-- Datatypes --
+---------------
+
 ||| A label is a string labelling the thing it is associated with.
 public export
 data Label : Type where
   MkLabel : (label : String) -> Label
-
-||| Two `Label`s are equal iff their internal strings are equal.
-export
-Eq Label where
-  (==) (MkLabel l1) (MkLabel l2) = l1 == l2
-
-export
-Show Label where
-  show (MkLabel label) = label
 
 %name Label l, l1, l2, l3
 
@@ -26,13 +25,37 @@ public export
 data State : Type where
   MkState : Label -> State
 
-||| Two `State`s are equal iff their `Label`s are equal.
-export
-Eq State where
-  (==) (MkState l1) (MkState l2) = l1 == l2
+||| A dependent result has an identifier (name of the result) and a state it
+||| goes to.
+public export
+data DepRes : Type where
+  MkDepRes : (resName : String) -> (to : State) -> DepRes
 
-Show State where
-  show (MkState l) = show l
+public export
+data RegEdge : Type where
+  MkRegEdge :  (name : Label)
+            -> (from : State)
+            -> (to   : State)
+            -> RegEdge
+
+public export
+data DepEdge : Type where
+  MkDepEdge :  (name  : Label)
+            -> (from  : State)
+            -> (depTo : List DepRes)
+            -> DepEdge
+
+public export
+data DSA : Type where
+  MkDSA :  (dsaName  : String)
+        -> (states   : List State)
+        -> (regEdges : List RegEdge)
+        -> (depEdges : List DepEdge)
+        -> DSA
+
+---------------------------
+-- Utils and projections --
+---------------------------
 
 ||| Given a name, create a new `State` with the given name as a `Label`.
 |||
@@ -41,37 +64,14 @@ export
 newState : (name : String) -> State
 newState = MkState . MkLabel
 
-public export
 ||| A special `State` which denotes a variable state, i.e. any state
+public export
 AnyState : State
 AnyState = newState "anyState"
-
-||| A dependent result has an identifier (name of the result) and a state it
-||| goes to.
-public export
-data DepRes : Type where
-  MkDepRes : (resName : String) -> (to : State) -> DepRes
 
 ||| Extract the name of the result that the given `DepRes` depends on.
 getResName : DepRes -> String
 getResName (MkDepRes resName _) = resName
-
-||| Two dependent results are equal iff their result-names are equal and their
-||| destinations are equal.
-export
-Eq DepRes where
-  (==) (MkDepRes resName1 t1) (MkDepRes resName2 t2) =
-    resName1 == resName2 && t1 == t2
-
-Show DepRes where
-  show (MkDepRes resName to) = "(" ++ resName ++ ") => " ++ show to
-
-public export
-data RegEdge : Type where
-  MkRegEdge :  (name : Label)
-            -> (from : State)
-            -> (to   : State)
-            -> RegEdge
 
 -- RegEdge projections
 namespace RegEdge
@@ -89,23 +89,6 @@ namespace RegEdge
   export
   to : RegEdge -> State
   to (MkRegEdge _ _ t) = t
-
-export
-Eq RegEdge where
-  (==) (MkRegEdge n1 f1 t1) (MkRegEdge n2 f2 t2) =
-    n1 == n2 && f1 == f2 && t1 == t2
-
-export
-Show RegEdge where
-  show (MkRegEdge name from to) =
-    show from ++ " --" ++ show name ++ "--> " ++ show to
-
-public export
-data DepEdge : Type where
-  MkDepEdge :  (name  : Label)
-            -> (from  : State)
-            -> (depTo : List DepRes)
-            -> DepEdge
 
 -- DepEdge projections
 namespace DepEdge
@@ -125,23 +108,10 @@ namespace DepEdge
   depTo : DepEdge -> List DepRes
   depTo (MkDepEdge _ _ dt) = dt
 
-export
-Eq DepEdge where
-  (==) (MkDepEdge n1 f1 dt1) (MkDepEdge n2 f2 dt2) =
-    n1 == n2 && f1 == f2 && dt1 == dt2
 
-export
-Show DepEdge where
-  show (MkDepEdge name from depTo) =
-    show from ++ " --" ++ show name ++ "-->{ " ++ show depTo ++ " }"
-
-public export
-data DSA : Type where
-  MkDSA :  (dsaName  : String)
-        -> (states   : List State)
-        -> (regEdges : List RegEdge)
-        -> (depEdges : List DepEdge)
-        -> DSA
+--------------------------------------------------------------------------------
+-- INTERFACES --
+--------------------------------------------------------------------------------
 
 ||| If `a` describes a Dependent State Automaton, there must be a mapping from
 ||| `a` to `DSA`.
@@ -150,9 +120,65 @@ interface DSADesc a where
   toDSA : a -> DSA
 
 
------------------------------
+--------
+-- Eq --
+--------
+
+||| Two `Label`s are equal iff their internal strings are equal.
+export
+Eq Label where
+  (==) (MkLabel l1) (MkLabel l2) = l1 == l2
+
+||| Two `State`s are equal iff their `Label`s are equal.
+export
+Eq State where
+  (==) (MkState l1) (MkState l2) = l1 == l2
+
+||| Two dependent results are equal iff their result-names are equal and their
+||| destinations are equal.
+export
+Eq DepRes where
+  (==) (MkDepRes resName1 t1) (MkDepRes resName2 t2) =
+    resName1 == resName2 && t1 == t2
+
+export
+Eq RegEdge where
+  (==) (MkRegEdge n1 f1 t1) (MkRegEdge n2 f2 t2) =
+    n1 == n2 && f1 == f2 && t1 == t2
+
+export
+Eq DepEdge where
+  (==) (MkDepEdge n1 f1 dt1) (MkDepEdge n2 f2 dt2) =
+    n1 == n2 && f1 == f2 && dt1 == dt2
+
+----------
+-- Show --
+----------
+
+export
+Show Label where
+  show (MkLabel label) = label
+
+Show State where
+  show (MkState l) = show l
+
+Show DepRes where
+  show (MkDepRes resName to) = "(" ++ resName ++ ") => " ++ show to
+
+export
+Show RegEdge where
+  show (MkRegEdge name from to) =
+    show from ++ " --" ++ show name ++ "--> " ++ show to
+
+export
+Show DepEdge where
+  show (MkDepEdge name from depTo) =
+    show from ++ " --" ++ show name ++ "-->{ " ++ show depTo ++ " }"
+
+
+--------------------------------------------------------------------------------
 -- MAGIC STRING GENERATION --
------------------------------
+--------------------------------------------------------------------------------
 
 tabWidth : Nat
 tabWidth = 2
@@ -266,9 +292,10 @@ unsafeGenIdris dsa@(MkDSA dsaName states regEdges depEdges) =
          ++ " -> " ++ "(ty -> " ++ stateName ++ ")"
          ++ " -> Type where"
 
------------------------------
+
+--------------------------------------------------------------------------------
 -- EXAMPLE DSA (TDD Ch.14) --
------------------------------
+--------------------------------------------------------------------------------
 
 any : State
 any = MkState (MkLabel "state")
