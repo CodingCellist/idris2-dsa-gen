@@ -31,6 +31,8 @@ public export
 data DepRes : Type where
   MkDepRes : (resName : String) -> (to : State) -> DepRes
 
+||| A regular edge has a label (its name), and two states it goes between (a
+||| `from` state and a `to` state).
 public export
 data RegEdge : Type where
   MkRegEdge :  (name : Label)
@@ -38,6 +40,9 @@ data RegEdge : Type where
             -> (to   : State)
             -> RegEdge
 
+||| A dependent edge has a label (its name), a state where it originates (goes
+||| `from`), and a list of depent results describing which state each of the
+||| results map to.
 public export
 data DepEdge : Type where
   MkDepEdge :  (name  : Label)
@@ -45,6 +50,8 @@ data DepEdge : Type where
             -> (depTo : List DepRes)
             -> DepEdge
 
+||| A Depedent State Automata (DSA) has a name, a list of states, a list of
+||| edges between the states, and a list of dependent edges between the states.
 public export
 data DSA : Type where
   MkDSA :  (dsaName  : String)
@@ -64,7 +71,7 @@ export
 newState : (name : String) -> State
 newState = MkState . MkLabel
 
-||| A special `State` which denotes a variable state, i.e. any state
+||| A special `State` which denotes a variable state, i.e. any state.
 public export
 AnyState : State
 AnyState = newState "anyState"
@@ -141,11 +148,15 @@ Eq DepRes where
   (==) (MkDepRes resName1 t1) (MkDepRes resName2 t2) =
     resName1 == resName2 && t1 == t2
 
+||| Two regular edges are equal iff their names, 'from' states, and 'to' states
+||| are respectively equal to each other.
 export
 Eq RegEdge where
   (==) (MkRegEdge n1 f1 t1) (MkRegEdge n2 f2 t2) =
     n1 == n2 && f1 == f2 && t1 == t2
 
+||| Two dependent edges are equal iff their names, 'from' states, and lists of
+||| dependent results are respectively equal to each other.
 export
 Eq DepEdge where
   (==) (MkDepEdge n1 f1 dt1) (MkDepEdge n2 f2 dt2) =
