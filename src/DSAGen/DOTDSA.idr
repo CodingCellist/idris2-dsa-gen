@@ -13,6 +13,40 @@ import Data.SnocList
 %default total
 
 
+------------------------------------
+-- DOTDSA datatype and components --
+------------------------------------
+
+-- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
+||| Labels are lists of at least one string.
+export
+data DDLabel : Type where
+  MkDDLabel : (vals : Vect (S k) String) -> DDLabel
+
+-- FIXME: is this the right name for this?
+export
+DDIdentifier : Type
+DDIdentifier = String
+
+||| An edge in a DOT model of a DSA.
+export
+data DDEdge : Type where
+  ||| The edge must have a `from` node and a `to` node, as well as be labelled
+  ||| (in order for the transition it describes to have a name).
+  MkDDEdge :  (from  : DDIdentifier)
+           -> (to    : DDIdentifier)
+           -> (label : DDLabel)
+           -> DDEdge
+
+||| A slightly more restricted version of DOT for easier conversion to a DSA.
+export
+data DOTDSA : Type where
+    DSAGraph :  (name  : DDIdentifier)
+             -> (edges : List DDEdge)
+             -> {auto 0 ok : NonEmpty edges}
+             -> DOTDSA
+
+
 ----------------------
 -- Util and filters --
 ----------------------
@@ -52,14 +86,8 @@ cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
 
 
 ---------------------------------------
--- Datatypes and conversion from DOT --
+-- Interfaces and conversion from DOT --
 ---------------------------------------
-
--- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
-||| Labels are lists of at least one string.
-export
-data DDLabel : Type where
-  MkDDLabel : (vals : Vect (S k) String) -> DDLabel
 
 export
 DOTAssign DDLabel where
@@ -67,11 +95,6 @@ DOTAssign DDLabel where
     -- each of the values must be comma-separated
     let valStr = foldr1 (++) $ intersperse ", " vals
     in MkAssign (NameID "label") (StringID valStr)
-
--- FIXME: is this the right name for this?
-export
-DDIdentifier : Type
-DDIdentifier = String
 
 export
 DOTDOTID DDIdentifier where
@@ -95,16 +118,6 @@ toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
 
 toDDLabel _ = Nothing
 
-
-||| An edge in a DOT model of a DSA.
-export
-data DDEdge : Type where
-  ||| The edge must have a `from` node and a `to` node, as well as be labelled
-  ||| (in order for the transition it describes to have a name).
-  MkDDEdge :  (from  : DDIdentifier)
-           -> (to    : DDIdentifier)
-           -> (label : DDLabel)
-           -> DDEdge
 
 export
 DOTStmt DDEdge where
@@ -154,14 +167,6 @@ export
 handleStmt : Stmt -> Maybe DDEdge
 handleStmt (EdgeStmt f rhs attrList) = toDDEdge (EdgeStmt f rhs attrList)
 handleStmt _ = Nothing
-
-||| A slightly more restricted version of DOT for easier conversion to a DSA.
-export
-data DOTDSA : Type where
-    DSAGraph :  (name  : DDIdentifier)
-             -> (edges : List DDEdge)
-             -> {auto 0 ok : NonEmpty edges}
-             -> DOTDSA
 
 export
 DOTGraph DOTDSA where
