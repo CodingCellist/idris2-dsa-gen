@@ -9,6 +9,8 @@ import Data.List1
 import Data.Vect
 import Data.String
 import Data.SnocList
+import Data.Either
+
 
 %default total
 
@@ -46,6 +48,16 @@ data DOTDSA : Type where
              -> {auto 0 ok : NonEmpty edges}
              -> DOTDSA
 
+||| The errors that can appear when checking if a DOT graph is a DOTDSA
+data DOTDSAErr : Type where
+  ||| The given string is not a valid Idris name
+  InvalidIdrName : (invName : String) -> DOTDSAErr
+  ||| The given string was improperly formatted (e.g. missing a parens)
+  StringFormatErr : (str : String) -> DOTDSAErr
+  ||| There was an error in the label
+  LabelErr : Assign -> DOTDSAErr
+  ||| The assignment was not a label
+  NotLabelErr : Assign -> DOTDSAErr
 
 ----------------------
 -- Util and filters --
@@ -83,6 +95,57 @@ cleanStringID : String -> String
 cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
                              -- substr is 0-based  ^
 
+
+-----------------
+-- NEW VERSION --
+-----------------
+
+||| A string is a valid idris name iff it starts with an alphabetic character,
+||| optionally followed by any number of alphanumeric characters or underscores.
+idrisName : String -> Either DOTDSAErr String
+idrisName s =
+  case unpack s of
+       [] => Left $ InvalidIdrName s
+       (c :: cs) => if isAlpha c && all (\ch => isAlphaNum ch || c == '_') cs
+                       then Right s
+                       else Left $ InvalidIdrName s
+
+
+--- A label's values are valid iff they are comma-separated valid Idris names
+--- (see `idrisName`). FIXME: Is this correct?
+
+-- Example edge label values:
+--   Send:(SeqNo sn)
+--   Wait?(Timeout)
+--   Wait?(Ack sn)
+--   Next!(SeqNo (sn + 1))
+
+isEdgeSymbol : Char -> Bool
+isEdgeSymbol ':' = True   -- takes arg
+isEdgeSymbol '?' = True   -- dependent on
+isEdgeSymbol '!' = True   -- produce value
+isEdgeSymbol _   = False
+
+idea : String -> ?todoo
+idea s =
+  case split isEdgeSymbol s of
+       (head ::: [rest]) => ?idea_rhs_2
+       _ => ?idea_rhs_3
+
+labelVals : String -> Either DOTDSAErr (Vect (S k) String)
+labelVals rawVals = ?labelVals_rhs
+
+ddLabel : Assign -> Either DOTDSAErr DDLabel
+ddLabel (MkAssign (NameID "label") (StringID id_)) =
+  case unpack id_ of
+       ('(' :: cs) =>
+            case Lin <>< cs of
+                 (rawVals :< ')') => ?ddLabel_rhs_5
+                 _ => Left $ StringFormatErr id_
+       _ => Left $ StringFormatErr id_
+
+ddLabel a@(MkAssign (NameID "label") _) = Left $ LabelErr a
+ddLabel a@(MkAssign _ _) = Left $ NotLabelErr a
 
 --------------------
 -- DOT ==> DOTDSA --
