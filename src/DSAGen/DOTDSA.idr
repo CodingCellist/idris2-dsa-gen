@@ -55,7 +55,9 @@ data DOTDSAErr : Type where
   ||| The given string was improperly formatted (e.g. missing a parens)
   StringFormatErr : (str : String) -> DOTDSAErr
   ||| There was an error in the label
-  LabelErr : Assign -> DOTDSAErr
+  LabelErr : Assign -> (reason : Maybe DOTDSAErr) -> DOTDSAErr
+  ||| There was a problem with the label value
+  LabelValErr : (val : String) -> DOTDSAErr
   ||| The assignment was not a label
   NotLabelErr : Assign -> DOTDSAErr
 
@@ -111,6 +113,44 @@ idrisName s =
                        else Left $ InvalidIdrName s
 
 
+||| An edge symbol is one of:
+|||   :
+|||   ?
+|||   !
+isEdgeSymbol : Char -> Bool
+isEdgeSymbol ':' = True   -- takes arg
+isEdgeSymbol '?' = True   -- dependent on
+isEdgeSymbol '!' = True   -- produce value
+isEdgeSymbol _   = False
+
+||| Returns True iff the given string contains one of the symbols:
+|||   :
+|||   ?
+|||   !
+hasEdgeSymbol : String -> Bool
+hasEdgeSymbol s = isInfixOf ":" s || isInfixOf "?" s || isInfixOf "!" s
+
+specialEdgeVal : String -> Either DOTDSAErr String
+specialEdgeVal s = ?specialEdgeVal_rhs
+                -- ^ this needs the SnocList stuff to check that the parens are
+                --   there and unpack the value w/i
+
+||| A regular edge value must be a valid idris name
+regularEdgeVal : String -> Either DOTDSAErr String
+regularEdgeVal s = if isValidIdrName $ unpack s
+                      then Right s
+                      else Left $ LabelValErr s
+
+handleVal : String -> Either DOTDSAErr String
+handleVal s = if hasEdgeSymbol s
+                 then specialEdgeVal s
+                 else regularEdgeVal s
+
+labelVals : String -> Either DOTDSAErr (Vect (S k) String)
+labelVals rawLabel = do let rawVals = trim <$> split (== ',') rawLabel
+                        vals <- traverse handleVal rawVals
+                        ?labelVals_rhs
+
 --- A label's values are valid iff they are comma-separated valid Idris names
 --- (see `idrisName`). FIXME: Is this correct?
 
@@ -119,21 +159,7 @@ idrisName s =
 --   Wait?(Timeout)
 --   Wait?(Ack sn)
 --   Next!(SeqNo (sn + 1))
-
-isEdgeSymbol : Char -> Bool
-isEdgeSymbol ':' = True   -- takes arg
-isEdgeSymbol '?' = True   -- dependent on
-isEdgeSymbol '!' = True   -- produce value
-isEdgeSymbol _   = False
-
-idea : String -> ?todoo
-idea s =
-  case split isEdgeSymbol s of
-       (head ::: [rest]) => ?idea_rhs_2
-       _ => ?idea_rhs_3
-
-labelVals : String -> Either DOTDSAErr (Vect (S k) String)
-labelVals rawVals = ?labelVals_rhs
+--   CheckPIN:(PIN)?(Incorrect)
 
 ddLabel : Assign -> Either DOTDSAErr DDLabel
 ddLabel (MkAssign (NameID "label") (StringID id_)) =
@@ -144,7 +170,7 @@ ddLabel (MkAssign (NameID "label") (StringID id_)) =
                  _ => Left $ StringFormatErr id_
        _ => Left $ StringFormatErr id_
 
-ddLabel a@(MkAssign (NameID "label") _) = Left $ LabelErr a
+ddLabel a@(MkAssign (NameID "label") _) = Left $ LabelErr a Nothing
 ddLabel a@(MkAssign _ _) = Left $ NotLabelErr a
 
 --------------------
