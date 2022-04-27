@@ -206,3 +206,8 @@ label : Grammar _ LabelTok True DSALabel
 label =  (cmdName >>= \cn => pure (PlainCmd cn))
      <|> cmdWithArgs
 
+export
+parse :  List (WithBounds LabelTok)
+      -> Either (List1 (ParsingError LabelTok)) (DSALabel, List (WithBounds LabelTok))
+parse toks = parse label toks
+

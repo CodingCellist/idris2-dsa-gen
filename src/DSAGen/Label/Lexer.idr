@@ -42,10 +42,10 @@ lParens = is '('
 rParens : Lexer
 rParens = is ')'
 
-||| An Idris name is at least one alphabetical character followed by a number of
-||| alphanumerical or underscore characters.
+||| An Idris name is at least one lowercase alphabetical character followed by a
+||| number of alphanumerical or underscore characters.
 idrName : Lexer
-idrName = alpha <+> many alphaUnder
+idrName = lower <+> many alphaUnder
 
 ||| A data constructor is at least one UPPERCASE alphabetical character,
 ||| followed by a number of alphanumerical or underscore characters.
