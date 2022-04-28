@@ -3,6 +3,7 @@ module DSAGen.Label.Parser
 import DSAGen.Label.Lexer
 
 import Text.Parser
+import Data.String
 
 %default total
 
@@ -10,15 +11,17 @@ import Text.Parser
 -- AST --
 ---------
 
-||| The type of names that can occur in a label
-data Name : Type where
-  ||| A data constructor
-  DataCons : (dc : String) -> Name
-  ||| An Idris name
-  IdrName : (n : String) -> Name
-
 data Value : Type where
-  MkVal : (dc : Name) -> (args : Maybe $ List1 Name) -> Value
+  ||| A data constructor, potentially taking some arguments
+  DataVal : (dc : String) -> (args : Maybe $ List1 Value) -> Value
+  ||| An Idris name
+  IdrName : (n : String) -> Value
+  ||| A literal number
+  LitVal  : (lit : Integer) -> Value
+
+||| The type of expressions that can occur in a label
+data LExpr : Type where
+  AddExpr : (num : Value) -> (addend : Value) -> LExpr
 
 ||| The type of actions that can occur in a label
 data Action : Type where
@@ -37,8 +40,8 @@ data Action : Type where
 ||| A DSALabel either contains a plain command (which is a data constructor), or
 ||| a command which contains up to 3 actions.
 data DSALabel : Type where
-  PlainCmd : (cmd : Name) -> DSALabel
-  CmdWithActs : (cmd : Name) -> (acts : List1 Action) -> DSALabel
+  PlainCmd : (cmd : Value) -> DSALabel
+  CmdWithActs : (cmd : Value) -> (acts : List1 Action) -> DSALabel
 
 
 ---------------
@@ -77,35 +80,69 @@ ws = terminal "Expected some whitespace"
                _  => Nothing)
 
 ||| A data constructor
-dataCons : Grammar _ LabelTok True Name
+dataCons : Grammar _ LabelTok True String
 dataCons = terminal "Expected a data constructor"
-            (\case DataCons d => Just (DataCons d)
+            (\case DataCons d => Just d
                    _          => Nothing)
 
 ||| A command name is a data constructor
 %inline
-cmdName : Grammar _ LabelTok True Name
+cmdName : Grammar _ LabelTok True String
 cmdName = dataCons
 
 ||| An Idris name
-idrName : Grammar _ LabelTok True Name
+idrName : Grammar _ LabelTok True String
 idrName = terminal "Expected an Idris name"
-            (\case IdrName n => Just (IdrName n)
-                   _          => Nothing)
+            (\case IdrName n => Just n
+                   _         => Nothing)
+
+||| A number literal
+numLit : Grammar _ LabelTok True Value
+numLit = terminal "Expected a number literal"
+            (\case NumLit l => Just (LitVal !(parseInteger l))
+                   _        => Nothing)
 
 -------------------
 -- Non-terminals --
 -------------------
 
+||| Addition is a name or a literal, followed by a plus, followed by another
+||| name or identifier.
+addExpr : Grammar _ LabelTok True LExpr
+addExpr = ?addExpr_rhs
+
 ||| A data constructor which contains arguments (args) must have those args be
 ||| either data constructors or Idris names, separated by whitespace. There must
 ||| be at least one argument.
-dataArgs : Grammar _ LabelTok True (List1 Name)
-dataArgs = some arg
+dataArgs : Grammar _ LabelTok True (List1 Value)
+dataArgs = some (dcNestedArg <|> parensNameArg <|> dcArg <|> nameArg)
   where
-    arg : Grammar _ LabelTok True Name
-    arg = do ws
-             (idrName <|> dataCons)
+    dcNestedArg : Grammar _ LabelTok True Value
+    dcNestedArg = do ws
+                     lParens
+                     dc <- dataCons
+                     dcArgs <- optional dataArgs
+                     rParens
+                     pure (DataVal dc dcArgs)
+
+
+    parensNameArg : Grammar _ LabelTok True Value
+    parensNameArg = do ws
+                       lParens
+                       n <- idrName
+                       rParens
+                       pure (IdrName n)
+
+    dcArg : Grammar _ LabelTok True Value
+    dcArg = do ws
+               dc <- dataCons
+               dcArgs <- optional dataArgs
+               pure (DataVal dc dcArgs)
+
+    nameArg : Grammar _ LabelTok True Value
+    nameArg = do ws
+                 n <- idrName
+                 pure (IdrName n)
 
 ||| Argument notation (for any of the edge symbols) is:
 |||   A left parens, a result name (optionally taking some valid Idris names as
@@ -116,13 +153,14 @@ argNotation =
      dc <- dataCons
      dArgs <- optional dataArgs
      rParens
-     pure (MkVal dc dArgs)
+     pure (DataVal dc dArgs)
 
 ||| Taking a value as an argument is denoted by:
 |||   A colon, followed by: a left parens, a result name (optionally taking some
 |||   valid Idris names as arguments), and a right parens.
 valArg : Grammar _ LabelTok True Action
 valArg = do colon
+            commit
             arg <- argNotation
             pure (Take arg)
 
@@ -131,6 +169,7 @@ valArg = do colon
 |||   taking some valid Idris names as arguments), and a right parens.
 depVal : Grammar _ LabelTok True Action
 depVal = do query
+            commit
             val <- argNotation
             pure (Depend val)
 
@@ -139,6 +178,7 @@ depVal = do query
 |||   taking some valid Idris names as arguments), and a right parens.
 prodVal : Grammar _ LabelTok True Action
 prodVal = do bang
+             commit
              val <- argNotation
              pure (Produce val)
 
@@ -199,12 +239,12 @@ valCombns =  argDepProd     -- :(test)?(rest)!(quest)
 cmdWithArgs : Grammar _ LabelTok True DSALabel
 cmdWithArgs = do cn <- cmdName
                  acts <- (valCombns <|> valNotation)
-                 pure (CmdWithActs cn acts)
+                 pure (CmdWithActs (DataVal cn Nothing) acts)
 
 ||| A label is either a plain command name, or a command with arguments
 label : Grammar _ LabelTok True DSALabel
-label =  (cmdName >>= \cn => pure (PlainCmd cn))
-     <|> cmdWithArgs
+label =  cmdWithArgs
+     <|> (cmdName >>= \cn => pure (PlainCmd (DataVal cn Nothing)))
 
 export
 parse :  List (WithBounds LabelTok)
