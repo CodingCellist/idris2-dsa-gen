@@ -31,6 +31,14 @@ lParens = is '('
 rParens : Lexer
 rParens = is ')'
 
+||| Numerical literals
+numLit : Lexer
+numLit = (opt $ is '-') <+> some digit
+
+||| Addition '+'
+addOp : Lexer
+addOp =  is '+'
+
 ||| Any alphanumerical character, or an underscore.
 alphaUnder : Lexer
 alphaUnder = alpha <|> is '_'
@@ -58,6 +66,8 @@ public export
 data LabelTok
   = DataCons String
   | IdrName String
+  | NumLit String
+  | AddOp String
   | LParens
   | RParens
   | Colon
@@ -68,7 +78,9 @@ data LabelTok
 export
 Show LabelTok where
   show (DataCons c) = "(DataCons " ++ c ++ ")"
-  show (IdrName i) = "(IdrName " ++ i ++ ")"
+  show (IdrName n) = "(IdrName " ++ n ++ ")"
+  show (NumLit l) = "(NumLit " ++ l ++ ")"
+  show (AddOp o) = "(AddOp " ++ o ++ ")"
   show LParens = "LParens"
   show RParens = "RParens"
   show Colon = "Colon"
@@ -85,6 +97,8 @@ labelTokenMap = [ (spaces  , const WS)
                 , (bang    , const Bang)
                 , (lParens , const LParens)
                 , (rParens , const RParens)
+                , (numLit  , \l => NumLit l)
+                , (addOp   , \o => AddOp o)
                 , (idrName , \n => IdrName n)
                 , (dataCons, \c => DataCons c)
                 ]
