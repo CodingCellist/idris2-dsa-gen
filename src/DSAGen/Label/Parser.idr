@@ -23,25 +23,44 @@ data Value : Type where
 data LExpr : Type where
   AddExpr : (num : Value) -> (addend : Value) -> LExpr
 
-||| The type of actions that can occur in a label
-data Action : Type where
-  ||| Taking an argument
-  |||   ":(val)"
-  Take : (val : Value) -> Action
+||| Taking an argument
+|||   ":(val)"
+data TakeArg : Type where
+  Takes : (val : Value) -> TakeArg
 
-  ||| Depending on a value
-  |||   "?(val)"
-  Depend : (val : Value) -> Action
+||| Depending on a value
+|||   "?(val)"
+data DepArg : Type where
+  DepOn : (val : Value) -> DepArg
 
-  ||| Producing a value
-  |||   "!(val)"
+||| Producing a value
+|||   "!(val)"
+data ProdArg : Type where
   Produce : (val : Value) -> Action
 
 ||| A DSALabel either contains a plain command (which is a data constructor), or
 ||| a command which contains up to 3 actions.
 data DSALabel : Type where
+  ||| A command without any arguments
   PlainCmd : (cmd : Value) -> DSALabel
-  CmdWithActs : (cmd : Value) -> (acts : List1 Action) -> DSALabel
+  ||| A command taking an argument
+  TakeCmd : (cmd : Value) -> (arg : TakeArg) -> DSALabel
+  ||| A command depending on a value
+  DepCmd : (cmd : Value) -> (dep : DepArg) -> DSALabel
+  ||| A command producing a value
+  ProdCmd : (cmd : Value) -> (res : ProdArg) -> DSALabel
+  ||| A command taking an argument and depending on a value
+  TDCmd : (cmd : Value) -> (arg : TakeArg) -> (dep : DepArg) -> DSALabel
+  ||| A command taking an argument and producing a value
+  TPCmd : (cmd : Value) -> (arg : TakeArg) -> (res : ProdArg) -> DSALabel
+  ||| A command depending on a value and producing a value
+  DPCmd : (cmd : Value) -> (dep : DepArg) -> (res : ProdArg) -> DSALabel
+  ||| A command taking an argument, depending on a value, and producing a value
+  TDPCmd :  (cmd : Value)
+         -> (arg : TakeArg)
+         -> (dep : DepArg)
+         -> (res : ProdArg)
+         -> DSALabel
 
 
 ---------------
