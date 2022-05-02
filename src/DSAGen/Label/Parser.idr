@@ -23,6 +23,8 @@ data Value : Type where
   DataVal : (dc : String) -> (args : Maybe $ List1 Value) -> Value
   ||| An addition expression
   AddExpr : (num : Value) -> (addend : Value) -> Value
+  ||| A tuple expression
+  Tuple : (fst : Value) -> (snd : Value) -> Value
 
 ||| Taking an argument
 |||   ":(val)"
@@ -93,6 +95,11 @@ bang = terminal "Expected '!'"
           (\case Bang => Just ()
                  _     => Nothing)
 
+comma : Grammar _ LabelTok True ()
+comma = terminal "Expected ','"
+          (\case Comma => Just ()
+                 _     => Nothing)
+
 addOp : Grammar _ LabelTok True ()
 addOp = terminal "Expected '+'"
           (\case AddOp => Just ()
@@ -143,6 +150,7 @@ mutual
   value : Grammar _ LabelTok True Value
   value =  argsDataVal
        <|> addExpr
+       <|> tupleExpr
        <|> plainDataVal
        <|> idrName
        <|> numLit
@@ -175,8 +183,9 @@ mutual
   plainDataVal = do dc <- dataCons
                     pure (DataVal dc Nothing)
 
-  ||| Addition is a left parenthesis, followed by: a name or a literal, a plus,
-  ||| another name or identifier, and finally a right parenthesis.
+  ||| Addition is a left parenthesis, followed by: a name or a literal, some
+  ||| whitespace, a plus, some whitespace, another name or identifier, and
+  ||| finally a right parenthesis.
   addExpr : Grammar _ LabelTok True Value
   addExpr = do lParens
                lhs <- (idrName <|> numLit)
@@ -186,6 +195,18 @@ mutual
                rhs <- (idrName <|> numLit)
                rParens
                pure $ AddExpr lhs rhs
+
+  ||| Tuples are a left parenthesis, followed by: a first value, a comma, a
+  ||| second value, and finally a right parenthesis.
+  ||| There may be whitespace inbetween the values and theh comma.
+  tupleExpr : Grammar _ LabelTok True Value
+  tupleExpr = do lParens
+                 fst <- value
+                 option () ws
+                 comma
+                 option () ws
+                 snd <- value
+                 pure (Tuple fst snd)
 
 --------------------
 -- Edge notations --
