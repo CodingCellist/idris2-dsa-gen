@@ -31,6 +31,10 @@ lParens = is '('
 rParens : Lexer
 rParens = is ')'
 
+||| Tuple separator
+comma : Lexer
+comma = is ','
+
 ||| Numerical literals
 numLit : Lexer
 numLit = (opt $ is '-') <+> some digit
@@ -71,6 +75,7 @@ data LabelTok
   | RParens
   | AddOp
   | Colon
+  | Comma
   | Query
   | Bang
   | WS
@@ -84,6 +89,7 @@ Show LabelTok where
   show RParens = "RParens"
   show AddOp = "AddOp"
   show Colon = "Colon"
+  show Comma = "Comma"
   show Query = "Query"
   show Bang = "Bang"
   show WS = "WS"
@@ -92,6 +98,7 @@ Show LabelTok where
 |||   String -> LabelTok
 labelTokenMap : TokenMap LabelTok
 labelTokenMap = [ (spaces  , const WS)
+                , (comma   , const Comma)
                 , (colon   , const Colon)
                 , (query   , const Query)
                 , (bang    , const Bang)
