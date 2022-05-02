@@ -12,16 +12,17 @@ import Data.String
 ---------
 
 data Value : Type where
-  ||| A data constructor, potentially taking some arguments
-  DataVal : (dc : String) -> (args : Maybe $ List1 Value) -> Value
+  -- "base cases"
   ||| An Idris name
   IdrName : (n : String) -> Value
   ||| A literal number
   LitVal  : (lit : Integer) -> Value
 
-||| The type of expressions that can occur in a label
-data LExpr : Type where
-  AddExpr : (num : Value) -> (addend : Value) -> LExpr
+  -- recursive structures
+  ||| A data constructor, potentially taking some arguments
+  DataVal : (dc : String) -> (args : Maybe $ List1 Value) -> Value
+  ||| An addition expression
+  AddExpr : (num : Value) -> (addend : Value) -> Value
 
 ||| Taking an argument
 |||   ":(val)"
@@ -31,32 +32,32 @@ data TakeArg : Type where
 ||| Depending on a value
 |||   "?(val)"
 data DepArg : Type where
-  DepOn : (val : Value) -> DepArg
+  DepsOn : (val : Value) -> DepArg
 
 ||| Producing a value
 |||   "!(val)"
 data ProdArg : Type where
-  Produce : (val : Value) -> Action
+  Produce : (val : Value) -> ProdArg
 
 ||| A DSALabel either contains a plain command (which is a data constructor), or
 ||| a command which contains up to 3 actions.
 data DSALabel : Type where
   ||| A command without any arguments
-  PlainCmd : (cmd : Value) -> DSALabel
+  PlainCmd : (cmd : String) -> DSALabel
   ||| A command taking an argument
-  TakeCmd : (cmd : Value) -> (arg : TakeArg) -> DSALabel
+  TakeCmd : (cmd : String) -> (arg : TakeArg) -> DSALabel
   ||| A command depending on a value
-  DepCmd : (cmd : Value) -> (dep : DepArg) -> DSALabel
+  DepCmd : (cmd : String) -> (dep : DepArg) -> DSALabel
   ||| A command producing a value
-  ProdCmd : (cmd : Value) -> (res : ProdArg) -> DSALabel
+  ProdCmd : (cmd : String) -> (res : ProdArg) -> DSALabel
   ||| A command taking an argument and depending on a value
-  TDCmd : (cmd : Value) -> (arg : TakeArg) -> (dep : DepArg) -> DSALabel
+  TDCmd : (cmd : String) -> (arg : TakeArg) -> (dep : DepArg) -> DSALabel
   ||| A command taking an argument and producing a value
-  TPCmd : (cmd : Value) -> (arg : TakeArg) -> (res : ProdArg) -> DSALabel
+  TPCmd : (cmd : String) -> (arg : TakeArg) -> (res : ProdArg) -> DSALabel
   ||| A command depending on a value and producing a value
-  DPCmd : (cmd : Value) -> (dep : DepArg) -> (res : ProdArg) -> DSALabel
+  DPCmd : (cmd : String) -> (dep : DepArg) -> (res : ProdArg) -> DSALabel
   ||| A command taking an argument, depending on a value, and producing a value
-  TDPCmd :  (cmd : Value)
+  TDPCmd :  (cmd : String)
          -> (arg : TakeArg)
          -> (dep : DepArg)
          -> (res : ProdArg)
@@ -92,6 +93,11 @@ bang = terminal "Expected '!'"
           (\case Bang => Just ()
                  _     => Nothing)
 
+addOp : Grammar _ LabelTok True ()
+addOp = terminal "Expected '+'"
+          (\case AddOp => Just ()
+                 _     => Nothing)
+
 ||| Whitespace
 ws : Grammar _ LabelTok True ()
 ws = terminal "Expected some whitespace"
@@ -110,9 +116,9 @@ cmdName : Grammar _ LabelTok True String
 cmdName = dataCons
 
 ||| An Idris name
-idrName : Grammar _ LabelTok True String
+idrName : Grammar _ LabelTok True Value
 idrName = terminal "Expected an Idris name"
-            (\case IdrName n => Just n
+            (\case IdrName n => Just (IdrName n)
                    _         => Nothing)
 
 ||| A number literal
@@ -121,150 +127,173 @@ numLit = terminal "Expected a number literal"
             (\case NumLit l => Just (LitVal !(parseInteger l))
                    _        => Nothing)
 
--------------------
--- Non-terminals --
--------------------
 
-||| Addition is a name or a literal, followed by a plus, followed by another
-||| name or identifier.
-addExpr : Grammar _ LabelTok True LExpr
-addExpr = ?addExpr_rhs
+--------------------------------------------------------------------------------
+-- NON-TERMINALS
+--------------------------------------------------------------------------------
 
-||| A data constructor which contains arguments (args) must have those args be
-||| either data constructors or Idris names, separated by whitespace. There must
-||| be at least one argument.
-dataArgs : Grammar _ LabelTok True (List1 Value)
-dataArgs = some (dcNestedArg <|> parensNameArg <|> dcArg <|> nameArg)
-  where
-    dcNestedArg : Grammar _ LabelTok True Value
-    dcNestedArg = do ws
-                     lParens
-                     dc <- dataCons
-                     dcArgs <- optional dataArgs
-                     rParens
-                     pure (DataVal dc dcArgs)
+------------
+-- Values --
+------------
 
+mutual
+  ||| A value can be one of: a data constructor, an addition expression, an Idris
+  ||| name, or a literal number.
+  %inline
+  value : Grammar _ LabelTok True Value
+  value =  argsDataVal
+       <|> addExpr
+       <|> plainDataVal
+       <|> idrName
+       <|> numLit
 
-    parensNameArg : Grammar _ LabelTok True Value
-    parensNameArg = do ws
-                       lParens
-                       n <- idrName
-                       rParens
-                       pure (IdrName n)
+  ||| An argument to a data constructor must be preceded by whitespace
+  ||| ~~and can optionally be inside parentheses~~.
+  dcArg : Grammar _ LabelTok True Value
+  dcArg = do ws
+             -- option () lParens
+             arg <- value
+             -- option () rParens
+             pure arg
 
-    dcArg : Grammar _ LabelTok True Value
-    dcArg = do ws
-               dc <- dataCons
-               dcArgs <- optional dataArgs
-               pure (DataVal dc dcArgs)
+  ||| Some arguments to a data constructor.
+  dcArgs : Grammar _ LabelTok True (List1 Value)
+  dcArgs = do arg <- dcArg
+              args <- many dcArg
+              pure (arg ::: args)
 
-    nameArg : Grammar _ LabelTok True Value
-    nameArg = do ws
-                 n <- idrName
-                 pure (IdrName n)
+  ||| A data constructor which contains some arguments.
+  argsDataVal : Grammar _ LabelTok True Value
+  argsDataVal = do -- option () lParens
+                   dc <- dataCons
+                   args <- dcArgs
+                   -- option () rParens
+                   pure (DataVal dc (Just args))
 
-||| Argument notation (for any of the edge symbols) is:
-|||   A left parens, a result name (optionally taking some valid Idris names as
-|||   arguments), and a right parens.
-argNotation : Grammar _ LabelTok True Value
-argNotation =
-  do lParens
-     dc <- dataCons
-     dArgs <- optional dataArgs
-     rParens
-     pure (DataVal dc dArgs)
+  ||| A data constructor which does not contain any arguments.
+  plainDataVal : Grammar _ LabelTok True Value
+  plainDataVal = do dc <- dataCons
+                    pure (DataVal dc Nothing)
 
-||| Taking a value as an argument is denoted by:
-|||   A colon, followed by: a left parens, a result name (optionally taking some
-|||   valid Idris names as arguments), and a right parens.
-valArg : Grammar _ LabelTok True Action
-valArg = do colon
-            commit
-            arg <- argNotation
-            pure (Take arg)
+  ||| Addition is a left parenthesis, followed by: a name or a literal, a plus,
+  ||| another name or identifier, and finally a right parenthesis.
+  addExpr : Grammar _ LabelTok True Value
+  addExpr = do lParens
+               lhs <- (idrName <|> numLit)
+               ws
+               addOp
+               ws
+               rhs <- (idrName <|> numLit)
+               rParens
+               pure $ AddExpr lhs rhs
 
-||| Depending on a value is denoted by:
-|||   A question-mark, followed by: a left parens, a result name (optionally
-|||   taking some valid Idris names as arguments), and a right parens.
-depVal : Grammar _ LabelTok True Action
-depVal = do query
-            commit
-            val <- argNotation
-            pure (Depend val)
+--------------------
+-- Edge notations --
+--------------------
 
-||| Producing a value as a result is denoted by:
-|||   An exclamation-mark, followed by: a left parens, a result name (optionally
-|||   taking some valid Idris names as arguments), and a right parens.
-prodVal : Grammar _ LabelTok True Action
-prodVal = do bang
+||| The notation for taking an argument is a colon, followed by: a left parens,
+||| the value to take, and a right parens.
+takeArg : Grammar _ LabelTok True TakeArg
+takeArg = do colon
              commit
-             val <- argNotation
+             lParens
+             arg <- value
+             rParens
+             pure (Takes arg)
+
+||| The notation for depending on a value is a query/question-mark, followed by:
+||| a left parens, the value to depend on, and a right parens.
+depArg : Grammar _ LabelTok True DepArg
+depArg = do query
+            commit
+            lParens
+            arg <- value
+            rParens
+            pure (DepsOn arg)
+
+||| The notation for producing/returning a value is a bang/exclamation-mark,
+||| followed by: a left parens, the value to produce, and a right parens.
+prodArg : Grammar _ LabelTok True ProdArg
+prodArg = do bang
+             commit
+             lParens
+             val <- value
+             rParens
              pure (Produce val)
 
--- FIXME: Related to the number of actions (see FIXME further down)
-||| A value notation is one of:
-|||   * a value argument
-|||   * a dependent value
-|||   * a produced value
-valNotation : Grammar _ LabelTok True (List1 Action)
-valNotation =  (valArg  >>= \act => pure $ singleton act)
-           <|> (depVal  >>= \act => pure $ singleton act)
-           <|> (prodVal >>= \act => pure $ singleton act)
+--------------
+-- Commands --
+--------------
 
+||| A plain command is a data constructor without any arguments and having no
+||| edge statements (i.e. neither taking, depending on, or producing any
+||| values).
+plainCmd : Grammar _ LabelTok True DSALabel
+plainCmd = do cmd <- cmdName
+              pure (PlainCmd cmd)
 
-||| A value argument, followed by a dependent value, followed by a produced
-||| value.
-argDepProd : Grammar _ LabelTok True (List1 Action)
-argDepProd = do vArg <- valArg
-                dVal <- depVal
-                pVal <- prodVal
-                pure (vArg ::: [dVal, pVal])
+||| A command taking a value as an argument.
+takeCmd : Grammar _ LabelTok True DSALabel
+takeCmd = do cmd <- cmdName
+             arg <- takeArg
+             pure (TakeCmd cmd arg)
 
-||| A value argument, followed by a dependent value.
-argDep : Grammar _ LabelTok True (List1 Action)
-argDep = do vArg <- valArg
-            dVal <- depVal
-            pure (vArg ::: [dVal])
+||| A command depending on a value.
+depCmd : Grammar _ LabelTok True DSALabel
+depCmd = do cmd <- cmdName
+            deps <- depArg
+            pure (DepCmd cmd deps)
 
-||| A value argument, followed by a produced value.
-argProd : Grammar _ LabelTok True (List1 Action)
-argProd = do vArg <- valArg
-             pVal <- prodVal
-             pure (vArg ::: [pVal])
+||| A command producing a value as a result.
+prodCmd : Grammar _ LabelTok True DSALabel
+prodCmd = do cmd <- cmdName
+             res <- prodArg
+             pure (ProdCmd cmd res)
 
-||| A dependent argument, followed by a produced value.
-depProd : Grammar _ LabelTok True (List1 Action)
-depProd = do dVal <- depVal
-             pVal <- prodVal
-             pure (dVal ::: [pVal])
+||| A command taking an argument and depending on a value.
+tdCmd : Grammar _ LabelTok True DSALabel
+tdCmd = do cmd <- cmdName
+           arg <- takeArg
+           deps <- depArg
+           pure (TDCmd cmd arg deps)
 
--- FIXME: The combination of actions is at most 3 in size; put this in type!
+||| A command taking an argument and producing a value.
+tpCmd : Grammar _ LabelTok True DSALabel
+tpCmd = do cmd <- cmdName
+           arg <- takeArg
+           val <- prodArg
+           pure (TPCmd cmd arg val)
 
-||| The possible value notation combinations are:
-|||   * a value argument, followed by a dependent value, followed by a produced
-|||     value;
-|||   * a value argument, followed by a dependent value;
-|||   * a value argument, followed by a produced value;
-|||   * a dependent argument, followed by a produced value.
-valCombns : Grammar _ LabelTok True (List1 Action)
-valCombns =  argDepProd     -- :(test)?(rest)!(quest)
-         <|> argDep         -- :(test)?(rest)
-         <|> argProd        -- :(test)!(quest)
-         <|> depProd        -- ?(rest)!(quest)
+||| A command depending on a value and producing a value.
+dpCmd : Grammar _ LabelTok True DSALabel
+dpCmd = do cmd <- cmdName
+           deps <- depArg
+           val <- prodArg
+           pure (DPCmd cmd deps val)
 
-||| A command with arguments is a command name followed by either:
-|||   * a combination of value notations;
-|||   * a single value notation (i.e. either: `valArg`, `depVal`, or `prodVal`).
-cmdWithArgs : Grammar _ LabelTok True DSALabel
-cmdWithArgs = do cn <- cmdName
-                 acts <- (valCombns <|> valNotation)
-                 pure (CmdWithActs (DataVal cn Nothing) acts)
+||| A command taking an argument, depending on a value, and producing a value.
+tdpCmd : Grammar _ LabelTok True DSALabel
+tdpCmd = do cmd <- cmdName
+            arg <- takeArg
+            deps <- depArg
+            val <- prodArg
+            pure (TDPCmd cmd arg deps val)
 
-||| A label is either a plain command name, or a command with arguments
+----------------
+-- The parser --
+----------------
+
 label : Grammar _ LabelTok True DSALabel
-label =  cmdWithArgs
-     <|> (cmdName >>= \cn => pure (PlainCmd (DataVal cn Nothing)))
+label =  tdpCmd
+     <|> dpCmd
+     <|> tpCmd
+     <|> tdCmd
+     <|> prodCmd
+     <|> depCmd
+     <|> takeCmd
+     <|> plainCmd
 
+||| Parse a label containing a DSA command
 export
 parse :  List (WithBounds LabelTok)
       -> Either (List1 (ParsingError LabelTok)) (DSALabel, List (WithBounds LabelTok))
