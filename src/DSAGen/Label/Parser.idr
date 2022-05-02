@@ -195,7 +195,7 @@ mutual
 ||| the value to take, and a right parens.
 takeArg : Grammar _ LabelTok True TakeArg
 takeArg = do colon
-             commit
+             -- commit
              lParens
              arg <- value
              rParens
@@ -205,7 +205,7 @@ takeArg = do colon
 ||| a left parens, the value to depend on, and a right parens.
 depArg : Grammar _ LabelTok True DepArg
 depArg = do query
-            commit
+            -- commit
             lParens
             arg <- value
             rParens
@@ -215,7 +215,7 @@ depArg = do query
 ||| followed by: a left parens, the value to produce, and a right parens.
 prodArg : Grammar _ LabelTok True ProdArg
 prodArg = do bang
-             commit
+             -- commit
              lParens
              val <- value
              rParens
