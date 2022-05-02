@@ -16,6 +16,9 @@ depends = contrib, dot-parse
 modules = DSAGen
         , DSAGen.DSL
         , DSAGen.DOTDSA
+        , DSAGen.Label
+        , DSAGen.Label.Lexer
+        , DSAGen.Label.Parser
 
 -- main file (i.e. file to load at REPL)
 main = DSAGen
