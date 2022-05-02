@@ -67,9 +67,9 @@ data LabelTok
   = DataCons String
   | IdrName String
   | NumLit String
-  | AddOp String
   | LParens
   | RParens
+  | AddOp
   | Colon
   | Query
   | Bang
@@ -80,9 +80,9 @@ Show LabelTok where
   show (DataCons c) = "(DataCons " ++ c ++ ")"
   show (IdrName n) = "(IdrName " ++ n ++ ")"
   show (NumLit l) = "(NumLit " ++ l ++ ")"
-  show (AddOp o) = "(AddOp " ++ o ++ ")"
   show LParens = "LParens"
   show RParens = "RParens"
+  show AddOp = "AddOp"
   show Colon = "Colon"
   show Query = "Query"
   show Bang = "Bang"
@@ -95,10 +95,10 @@ labelTokenMap = [ (spaces  , const WS)
                 , (colon   , const Colon)
                 , (query   , const Query)
                 , (bang    , const Bang)
+                , (addOp   , const AddOp)
                 , (lParens , const LParens)
                 , (rParens , const RParens)
                 , (numLit  , \l => NumLit l)
-                , (addOp   , \o => AddOp o)
                 , (idrName , \n => IdrName n)
                 , (dataCons, \c => DataCons c)
                 ]
