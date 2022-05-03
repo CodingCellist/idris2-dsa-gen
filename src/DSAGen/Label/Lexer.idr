@@ -1,6 +1,6 @@
 module DSAGen.Label.Lexer
 
-import Text.Lexer
+import public Text.Lexer
 
 %default total
 

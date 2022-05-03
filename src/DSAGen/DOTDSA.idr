@@ -3,6 +3,7 @@ module DSAGen.DOTDSA
 import Graphics.DOT
 
 import DSAGen.DSL
+import DSAGen.Label
 
 import Data.List
 import Data.List1
@@ -60,12 +61,18 @@ data DOTDSAErr : Type where
   LabelValErr : (val : String) -> DOTDSAErr
   ||| The assignment was not a label
   NotLabelErr : Assign -> DOTDSAErr
+  ||| There was an error lexing the label
+  LabelLexErr : (rem : String) -> DOTDSAErr
+  ||| There was an error parsing the label
+  LabelParseErr : List1 (ParsingError LabelTok) -> DOTDSAErr
+  ||| The entire label couldn't be parsed
+  LabelRemErr : (rem : List (WithBounds LabelTok)) -> DOTDSAErr
 
 ----------------------
 -- Util and filters --
 ----------------------
 
-||| A valid Idris name is at least one aplhabetical character followed by a
+||| A valid Idris name is at least one alphabetical character followed by a
 ||| number of alphanumerical or underscore characters.
 isValidIdrName : List Char -> Bool
 isValidIdrName [] = False
@@ -96,6 +103,40 @@ labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
 cleanStringID : String -> String
 cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
                              -- substr is 0-based  ^
+
+
+-------------------
+-- LABEL VERSION --
+-------------------
+
+||| Try to lex the given label string to a series of `LabelTok`s.
+|||
+||| The entire string must be lexed for the function to succeed, otherwise a
+||| `DOTDSAErr` containing the remainder is returned.
+lexLabel : (rawLabel : String) -> Either DOTDSAErr (List (WithBounds LabelTok))
+lexLabel rawLabel = do let (toks, (_, _, rawRem)) = lex rawLabel
+                       True <- pure $ rawRem == ""
+                         | False => Left (LabelLexErr rawRem)
+                       pure toks
+
+||| Try to parse the given list of `LabelTok`s as a label.
+|||
+||| The entire list of tokens must be parsed for the function to succeed. If
+||| some parsing errors occur, they are wrapped in a `DOTDSAErr` and returned.
+||| If the remainder is non-empty, it is returned in a different `DOTDSAErr`.
+parseLabel :  (labelToks : List (WithBounds LabelTok))
+           -> Either DOTDSAErr DSALabel
+parseLabel labelToks = do Right (dsaLabel, rem) <- pure $ parse labelToks
+                            | Left errs => Left (LabelParseErr errs)
+                          case rem of
+                               [] => pure dsaLabel
+                               _  => Left (LabelRemErr rem)
+
+||| Try to convert the given label string to a list of `DSALabel` commands.
+dsaLabel : (rawLabel : String) -> Either DOTDSAErr (List1 DSALabel)
+dsaLabel rawLabel = do let rawCmds = trim <$> split (== ';') rawLabel
+                       lexedCmds <- traverse lexLabel rawCmds
+                       traverse parseLabel lexedCmds
 
 
 -----------------
@@ -130,8 +171,45 @@ isEdgeSymbol _   = False
 hasEdgeSymbol : String -> Bool
 hasEdgeSymbol s = isInfixOf ":" s || isInfixOf "?" s || isInfixOf "!" s
 
+results : List Char -> Either DOTDSAErr String
+results resChars =
+  case span (not . isEdgeSymbol) resChars of
+       (res, []) => ?results_rhs_0
+       (res, eSymb :: rest) => ?results_rhs_2
+
+--- results resChars =
+---   if any isEdgeSymbol resChars
+---      then do let (r1, r2) = span (not . isEdgeSymbol) resChars
+---              s1 <- results (assert_smaller resChars r1)
+---              s2 <- results (assert_smaller resChars r2)
+---              pure $ s1 ++ s2
+---      else ?results_rhs_1
+
+||| A special edge value must be a valid Idris name, followed by an edge symbol,
+||| followed by a valid Idris name in parentheses, optionally followed by more
+||| symbol & parenthesised Idris name pairs.
 specialEdgeVal : String -> Either DOTDSAErr String
-specialEdgeVal s = ?specialEdgeVal_rhs
+specialEdgeVal s = handleCmdResults $ span (not . isEdgeSymbol) (unpack s)
+  where
+----    handleResults : List Char -> Either DOTDSAErr String
+----    handleResults cs =
+----      case cs of
+----           ('(' :: cs') =>
+----              case Lin <>< cs' of
+----                   rawVal => ?handleResults_rhs_0
+----                   _ => Left $ StringFormatErr (pack cs)
+----           _ => Left $ StringFormatErr (pack cs)
+
+    handleCmdResults : (List Char, List Char) -> Either DOTDSAErr String
+    handleCmdResults (cmd, tail) =
+      do True <- pure $ isValidIdrName cmd
+           | False => Left $ InvalidIdrName (pack cmd)
+         case tail of
+              (':' :: rest) => ?handleCmdResults_rhs_0
+              ('?' :: rest) => ?handleCmdResults_rhs_1
+              ('!' :: rest) => ?handleCmdResults_rhs_2
+              _ => Left $ LabelValErr (pack tail)
+
                 -- ^ this needs the SnocList stuff to check that the parens are
                 --   there and unpack the value w/i
 
@@ -139,7 +217,7 @@ specialEdgeVal s = ?specialEdgeVal_rhs
 regularEdgeVal : String -> Either DOTDSAErr String
 regularEdgeVal s = if isValidIdrName $ unpack s
                       then Right s
-                      else Left $ LabelValErr s
+                      else Left $ InvalidIdrName s
 
 handleVal : String -> Either DOTDSAErr String
 handleVal s = if hasEdgeSymbol s
@@ -163,6 +241,7 @@ labelVals rawLabel = do let rawVals = trim <$> split (== ',') rawLabel
 
 ddLabel : Assign -> Either DOTDSAErr DDLabel
 ddLabel (MkAssign (NameID "label") (StringID id_)) =
+  -- FIXME: incorrect!
   case unpack id_ of
        ('(' :: cs) =>
             case Lin <>< cs of

@@ -2,7 +2,7 @@ module DSAGen.Label.Parser
 
 import DSAGen.Label.Lexer
 
-import Text.Parser
+import public Text.Parser
 import Data.String
 
 %default total
@@ -43,6 +43,7 @@ data ProdArg : Type where
 
 ||| A DSALabel either contains a plain command (which is a data constructor), or
 ||| a command which contains up to 3 actions.
+public export
 data DSALabel : Type where
   ||| A command without any arguments
   PlainCmd : (cmd : String) -> DSALabel
