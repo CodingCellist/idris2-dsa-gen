@@ -38,7 +38,7 @@ data DDEdge : Type where
   ||| (in order for the transition it describes to have a name).
   MkDDEdge :  (from  : DDIdentifier)
            -> (to    : DDIdentifier)
-           -> (label : DDLabel)
+           -> (label : List1 DSALabel)
            -> DDEdge
 
 ||| A slightly more restricted version of DOT for easier conversion to a DSA.
@@ -174,7 +174,7 @@ dotToIdentifier (NameID   n) = toIdentifier n
 dotToIdentifier (StringID s) = toIdentifier (cleanStringID s)
 dotToIdentifier _ = Nothing
 
-||| Convert the given DOT statement to a `LDDEdge`. Some statement is an edge in
+||| Convert the given DOT statement to a `DDEdge`. Some statement is an edge in
 ||| a DSA iff it goes from a `NodeID` to a `NodeID` using a directed edge, with
 ||| a single attribute detailing the labelling of the edge.
 |||
@@ -184,8 +184,8 @@ toDDEdge : (stmt : Stmt) -> Maybe DDEdge
 toDDEdge (EdgeStmt (Left (MkNodeID f _)) ((MkEdgeRHS Arrow (Left (MkNodeID t _))) ::: []) [[attr]]) =
    do from <- dotToIdentifier f
       to <- dotToIdentifier t
-      ddLabel <- toDDLabel attr
-      pure (MkDDEdge from to ddLabel)
+      labelCmds <- dsaLabel attr
+      pure (MkDDEdge from to labelCmds)
  
 toDDEdge _ = Nothing
 

@@ -1,15 +1,18 @@
 module DSAGen.Label.Parser
 
+import Graphics.DOT
+
 import DSAGen.Label.Lexer
 
 import public Text.Parser
+import Data.List1
 import Data.String
 
 %default total
 
----------
--- AST --
----------
+--------------------------------------------------------------------------------
+-- AST
+--------------------------------------------------------------------------------
 
 data Value : Type where
   -- "base cases"
@@ -66,6 +69,68 @@ data DSALabel : Type where
          -> (res : ProdArg)
          -> DSALabel
 
+
+--------------------------------------------------------------------------------
+-- INTERFACES
+--------------------------------------------------------------------------------
+
+----------
+-- Show --
+----------
+
+export
+covering
+Show Value where
+  show (IdrName n) = "(IdrName " ++ n ++ ")"
+  show (LitVal lit) = "(LitVal " ++ show lit ++ ")"
+  show (DataVal dc Nothing) = "(DataVal " ++ dc ++ ")"
+  show (DataVal dc (Just args)) =
+    "(DataVal " ++ dc ++ " " ++ joinBy " " (toList $ map show args)
+  show (AddExpr num addend) =
+    "(AddExpr " ++ joinBy " " [show num, show addend] ++ ")"
+  show (Tuple fst snd) = "(Tuple " ++ joinBy " " [show fst, show snd] ++ ")"
+
+---------
+-- DOT --
+---------
+
+export
+covering
+DOTDOTID Value where
+  toDOTID val = StringID (toDOTString val)
+  where
+    ||| Convert the given `Value` to its DOT/GraphViz string representation.
+    ||| DIFFERENT FROM `show`!
+    toDOTString : Value -> String
+    toDOTString (IdrName n) = n
+    toDOTString (LitVal lit) = show lit
+    toDOTString (DataVal dc Nothing) = dc
+    toDOTString (DataVal dc (Just args)) =
+      dc ++ " " ++ (joinBy " " (toList $ map toDOTString args))
+    toDOTString (AddExpr num addend) =
+      "(" ++ (toDOTString num) ++ " + " ++ (toDOTString addend) ++ ")"
+    toDOTString (Tuple fst snd) =
+      "(" ++ (toDOTString fst) ++ "," ++ (toDOTString snd) ++ ")"
+
+export
+DOTAssign DSALabel where
+  -- MkAssign (NameID "label") rhs
+  toAssign dsaLabel =
+     let label = MkAssign (NameID "label")
+     in case dsaLabel of
+             (PlainCmd cmd) => label (StringID cmd)
+             (TakeCmd cmd arg) => ?rhs_1
+             (DepCmd cmd dep) => ?rhs_2
+             (ProdCmd cmd res) => ?rhs_3
+             (TDCmd cmd arg dep) => ?rhs_4
+             (TPCmd cmd arg res) => ?rhs_5
+             (DPCmd cmd dep res) => ?rhs_6
+             (TDPCmd cmd arg dep res) => ?rhs_7
+
+
+--------------------------------------------------------------------------------
+-- GRAMMAR
+--------------------------------------------------------------------------------
 
 ---------------
 -- Terminals --
@@ -136,9 +201,9 @@ numLit = terminal "Expected a number literal"
                    _        => Nothing)
 
 
---------------------------------------------------------------------------------
--- NON-TERMINALS
---------------------------------------------------------------------------------
+-------------------
+-- Non-terminals --
+-------------------
 
 ------------
 -- Values --
