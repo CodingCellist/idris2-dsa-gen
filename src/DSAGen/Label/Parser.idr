@@ -94,38 +94,57 @@ Show Value where
 -- DOT --
 ---------
 
+||| Convert the given `Value` to its DOT/GraphViz string representation.
+||| DIFFERENT FROM `show`!
+covering
+valToDOTString : Value -> String
+valToDOTString (IdrName n) = n
+valToDOTString (LitVal lit) = show lit
+valToDOTString (DataVal dc Nothing) = dc
+valToDOTString (DataVal dc (Just args)) =
+  dc ++ " " ++ (joinBy " " (toList $ map valToDOTString args))
+valToDOTString (AddExpr num addend) =
+  "(" ++ (valToDOTString num) ++ " + " ++ (valToDOTString addend) ++ ")"
+valToDOTString (Tuple fst snd) =
+  "(" ++ (valToDOTString fst) ++ "," ++ (valToDOTString snd) ++ ")"
+
 export
 covering
 DOTDOTID Value where
-  toDOTID val = StringID (toDOTString val)
-  where
-    ||| Convert the given `Value` to its DOT/GraphViz string representation.
-    ||| DIFFERENT FROM `show`!
-    toDOTString : Value -> String
-    toDOTString (IdrName n) = n
-    toDOTString (LitVal lit) = show lit
-    toDOTString (DataVal dc Nothing) = dc
-    toDOTString (DataVal dc (Just args)) =
-      dc ++ " " ++ (joinBy " " (toList $ map toDOTString args))
-    toDOTString (AddExpr num addend) =
-      "(" ++ (toDOTString num) ++ " + " ++ (toDOTString addend) ++ ")"
-    toDOTString (Tuple fst snd) =
-      "(" ++ (toDOTString fst) ++ "," ++ (toDOTString snd) ++ ")"
+  toDOTID val = StringID (valToDOTString val)
 
 export
+covering
 DOTAssign DSALabel where
   -- MkAssign (NameID "label") rhs
   toAssign dsaLabel =
      let label = MkAssign (NameID "label")
      in case dsaLabel of
-             (PlainCmd cmd) => label (StringID cmd)
-             (TakeCmd cmd arg) => ?rhs_1
-             (DepCmd cmd dep) => ?rhs_2
-             (ProdCmd cmd res) => ?rhs_3
-             (TDCmd cmd arg dep) => ?rhs_4
-             (TPCmd cmd arg res) => ?rhs_5
-             (DPCmd cmd dep res) => ?rhs_6
-             (TDPCmd cmd arg dep res) => ?rhs_7
+             (PlainCmd cmd) =>
+                label (StringID cmd)
+             (TakeCmd cmd (Takes val)) =>
+                label (StringID $ cmd ++ ":(" ++ valToDOTString val ++ ")")
+             (DepCmd cmd (DepsOn val)) =>
+                label (StringID $ cmd ++ "?(" ++ valToDOTString val ++ ")")
+             (ProdCmd cmd (Produce val)) =>
+                label (StringID $ cmd ++ "!(" ++ valToDOTString val ++ ")")
+             (TDCmd cmd (Takes argVal) (DepsOn depVal)) =>
+                let argStr = ":(" ++ valToDOTString argVal ++ ")"
+                    depStr = "?(" ++ valToDOTString depVal ++ ")"
+                in label (StringID $ cmd ++ argStr ++ depStr)
+             (TPCmd cmd (Takes argVal) (Produce prodVal)) =>
+                let argStr = ":(" ++ valToDOTString argVal ++ ")"
+                    prodStr = "!(" ++ valToDOTString prodVal ++ ")"
+                in label (StringID $ cmd ++ argStr ++ prodStr)
+             (DPCmd cmd (DepsOn depVal) (Produce prodVal)) =>
+                let depStr = "?(" ++ valToDOTString depVal ++ ")"
+                    prodStr = "!(" ++ valToDOTString prodVal ++ ")"
+                in label (StringID $ cmd ++ depStr ++ prodStr)
+             (TDPCmd cmd (Takes argVal) (DepsOn depVal) (Produce prodVal)) =>
+                let argStr = ":(" ++ valToDOTString argVal ++ ")"
+                    depStr = "?(" ++ valToDOTString depVal ++ ")"
+                    prodStr = "!(" ++ valToDOTString prodVal ++ ")"
+                in label (StringID $ cmd ++ argStr ++ depStr ++ prodStr)
 
 
 --------------------------------------------------------------------------------
