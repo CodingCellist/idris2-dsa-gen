@@ -55,6 +55,8 @@ data DOTDSAErr : Type where
   InvalidIdrName : (invName : String) -> DOTDSAErr
   ||| The given string was improperly formatted (e.g. missing a parens)
   StringFormatErr : (str : String) -> DOTDSAErr
+  ||| The given DOT identifier cannot be converted to a DOTDSA identifier
+  IncompatibleDOTIDErr : (dotID : DOTID) -> DOTDSAErr
   ||| There was an error in the label
   LabelErr : Assign -> (reason : Maybe DOTDSAErr) -> DOTDSAErr
   ||| There was a problem with the label value
@@ -67,6 +69,12 @@ data DOTDSAErr : Type where
   LabelParseErr : List1 (ParsingError LabelTok) -> DOTDSAErr
   ||| The entire label couldn't be parsed
   LabelRemErr : (rem : List (WithBounds LabelTok)) -> DOTDSAErr
+  ||| The edge statement was malformatted
+  EdgeStmtFormatErr : (edgeStmt : Stmt) -> DOTDSAErr
+  ||| The statement was not an edge statement
+  NotEdgeStmtErr : (stmt : Stmt) -> DOTDSAErr
+  ||| There was a problem with the DOT graph
+  DOTGraphErr : (g : Graph) -> DOTDSAErr
 
 ----------------------
 -- Util and filters --
@@ -78,31 +86,31 @@ isValidIdrName : List Char -> Bool
 isValidIdrName [] = False
 isValidIdrName (c :: cs) = isAlpha c && all (\c => isAlphaNum c || c == '_') cs
 
-||| A string describes a dependent edge iff it contains a valid idris name,
-||| followed by a '(', followed by a valid idris name, followed by a ')'.
-isDepEdge : String -> Bool
-isDepEdge s =
-  -- FIXME: fix words' totality
-  -- let cs = unpack $ concat (map trim (assert_total $ words s))  
-  let cs = unpack s
-  in case span (/= '(') cs of 
-         ([], _) => False
-         (_ , []) => False
-         (tName, (_ :: cs')) =>       -- ignore the '(' which is included by `span`
-             case Lin <>< cs' of
-                  resName :< ')' =>   -- check that we close the parenthesis
-                      isValidIdrName tName && isValidIdrName (toList resName)
-                  _ => False
-
-||| Checks that the values given from `toLabel` are valid DSA values. Each
-||| value is accepted iff it is a valid Idris name or it is a dependent edge.
-labelValsOK : (vals : List1 String) -> Bool
-labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
-
-||| Remove the leading and trailing '"' of the `str` contained in a DOT's `StringID`.
-cleanStringID : String -> String
-cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
-                             -- substr is 0-based  ^
+---- ||| A string describes a dependent edge iff it contains a valid idris name,
+---- ||| followed by a '(', followed by a valid idris name, followed by a ')'.
+---- isDepEdge : String -> Bool
+---- isDepEdge s =
+----   -- FIXME: fix words' totality
+----   -- let cs = unpack $ concat (map trim (assert_total $ words s))  
+----   let cs = unpack s
+----   in case span (/= '(') cs of 
+----          ([], _) => False
+----          (_ , []) => False
+----          (tName, (_ :: cs')) =>       -- ignore the '(' which is included by `span`
+----              case Lin <>< cs' of
+----                   resName :< ')' =>   -- check that we close the parenthesis
+----                       isValidIdrName tName && isValidIdrName (toList resName)
+----                   _ => False
+---- 
+---- ||| Checks that the values given from `toLabel` are valid DSA values. Each
+---- ||| value is accepted iff it is a valid Idris name or it is a dependent edge.
+---- labelValsOK : (vals : List1 String) -> Bool
+---- labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
+---- 
+---- ||| Remove the leading and trailing '"' of the `str` contained in a DOT's `StringID`.
+---- cleanStringID : String -> String
+---- cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
+----                              -- substr is 0-based  ^
 
 
 -------------------
@@ -126,8 +134,8 @@ lexLabel rawLabel = do let (toks, (_, _, rawRem)) = lex rawLabel
 ||| If the remainder is non-empty, it is returned in a different `DOTDSAErr`.
 parseLabel :  (labelToks : List (WithBounds LabelTok))
            -> Either DOTDSAErr DSALabel
-parseLabel labelToks = do Right (dsaLabel, rem) <- pure $ parse labelToks
-                            | Left errs => Left (LabelParseErr errs)
+parseLabel labelToks = do let Right (dsaLabel, rem) = parse labelToks
+                                | Left errs => Left (LabelParseErr errs)
                           case rem of
                                [] => pure dsaLabel
                                _  => Left (LabelRemErr rem)
@@ -143,36 +151,48 @@ dsaLabel rawLabel = do let rawCmds = trim <$> split (== ';') rawLabel
 -- DOT ==> DOTDSA --
 --------------------
 
-||| Convert the given DOT assignment to a `DDLabel`. Some DOT is a `DDLabel` iff
-||| it is an assignment from the name "label" to a StringID consisting of at
-||| least one valid transition (see `labelValsOK` for more details on what that
-||| means).
+||| Try to convert the given DOT assignment to a list of `DSALabel` commands.
+|||
+||| An assignment is a DSALabel iff its left hand side is the `NameID` "label",
+||| and its right hand side is a `StringID` which  can be parsed as a list of
+||| commands.
 export
-toDDLabel : Assign -> Maybe DDLabel
-toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
-  case split (== ',') (cleanStringID rawVals) of
-       (head ::: tail) =>
-               let head' = trim head
-                   tail' = map trim tail
-               in if labelValsOK (head' ::: tail')
-                     then Just $ MkDDLabel (fromList (head' :: tail'))
-                     else Nothing
+assignToDSALabel : Assign -> Either DOTDSAErr (List1 DSALabel)
+assignToDSALabel (MkAssign (NameID "label") (StringID rawLabel)) = dsaLabel rawLabel
+assignToDSALabel a = Left (NotLabelErr a)
 
-toDDLabel _ = Nothing
+--- ||| Convert the given DOT assignment to a `DDLabel`. Some DOT is a `DDLabel` iff
+--- ||| it is an assignment from the name "label" to a StringID consisting of at
+--- ||| least one valid transition (see `labelValsOK` for more details on what that
+--- ||| means).
+--- export
+--- toDDLabel : Assign -> Maybe DDLabel
+--- toDDLabel (MkAssign (NameID "label") (StringID rawVals)) =
+---   case split (== ',') (cleanStringID rawVals) of
+---        (head ::: tail) =>
+---                let head' = trim head
+---                    tail' = map trim tail
+---                in if labelValsOK (head' ::: tail')
+---                      then Just $ MkDDLabel (fromList (head' :: tail'))
+---                      else Nothing
+--- 
+--- toDDLabel _ = Nothing
 
 
 ||| Returns the given string in a `Just` iff it is a valid Idris name.
-toIdentifier : (s : String) -> Maybe DDIdentifier
-toIdentifier s = toMaybe (isValidIdrName $ unpack s) s
+toIdentifier : (s : String) -> Either DOTDSAErr DDIdentifier
+toIdentifier s = if isValidIdrName $ unpack s
+                    then pure s
+                    else Left $ InvalidIdrName s
 
 ||| Convert the given DOTID to a `DDIdentifier`. Some DOTID is a `DDIdentifier`
 ||| iff it is either a NameID or a StringID, and if that ID is a valid Idris
 ||| name.
 export
-dotToIdentifier : DOTID -> Maybe DDIdentifier
+dotToIdentifier : DOTID -> Either DOTDSAErr DDIdentifier
 dotToIdentifier (NameID   n) = toIdentifier n
 dotToIdentifier (StringID s) = toIdentifier (cleanStringID s)
-dotToIdentifier _ = Nothing
+dotToIdentifier dotID = Left $ IncompatibleDOTIDErr dotID
 
 ||| Convert the given DOT statement to a `DDEdge`. Some statement is an edge in
 ||| a DSA iff it goes from a `NodeID` to a `NodeID` using a directed edge, with
@@ -180,35 +200,39 @@ dotToIdentifier _ = Nothing
 |||
 ||| @ stmt the statement to convert
 export
-toDDEdge : (stmt : Stmt) -> Maybe DDEdge
+toDDEdge : (stmt : Stmt) -> Either DOTDSAErr DDEdge
 toDDEdge (EdgeStmt (Left (MkNodeID f _)) ((MkEdgeRHS Arrow (Left (MkNodeID t _))) ::: []) [[attr]]) =
-   do from <- dotToIdentifier f
-      to <- dotToIdentifier t
-      labelCmds <- dsaLabel attr
+   do let Right from = dotToIdentifier f
+            | Left fromErr => Left fromErr
+      let Right to = dotToIdentifier t
+            | Left toErr => Left toErr
+      let Right labelCmds = assignToDSALabel attr
+            | Left labelErr => Left labelErr
       pure (MkDDEdge from to labelCmds)
  
-toDDEdge _ = Nothing
+toDDEdge stmt@(EdgeStmt _ _ _) = Left $ EdgeStmtFormatErr stmt
+toDDEdge stmt = Left $ NotEdgeStmtErr stmt
 
 ||| Convert a DOT statement to a part of a DOTDSA. The statement is valid in the
 ||| DSA iff it is a `Stmt` containing an `EdgeStmt`.
 |||
 ||| @ stmt the statement to convert
 export
-handleStmt : Stmt -> Maybe DDEdge
+handleStmt : Stmt -> Either DOTDSAErr DDEdge
 handleStmt (EdgeStmt f rhs attrList) = toDDEdge (EdgeStmt f rhs attrList)
-handleStmt _ = Nothing
+handleStmt stmt = Left $ NotEdgeStmtErr stmt
 
 
 ||| Convert the given DOT Graph to the subset `DOTDSA`, which describes a DSA.
 export
-toDOTDSA : Graph -> Maybe DOTDSA
+toDOTDSA : Graph -> Either DOTDSAErr DOTDSA
 toDOTDSA (MkGraph Nothing DigraphKW (Just n) stmts) =
-  do name <- dotToIdentifier n
+  do let Right name = dotToIdentifier n
+          | Left nameErr => Left nameErr
      (e :: es) <- traverse handleStmt stmts
-        | [] => Nothing
      pure (DSAGraph name (e :: es))
 
-toDOTDSA _ = Nothing
+toDOTDSA g = Left $ DOTGraphErr g
 
 
 -----------------------------------
@@ -228,6 +252,7 @@ DOTDOTID DDIdentifier where
   toDOTID i = NameID i
 
 export
+covering
 DOTStmt DDEdge where
   -- "from" is the id of a node;
   -- same with "to", but it is part of the RHS of an edge statement and we only
@@ -240,6 +265,7 @@ DOTStmt DDEdge where
              ([[toAssign label]])
 
 export
+covering
 DOTGraph DOTDSA where
   -- A DOTDSA is non-strict, directed graph;
   -- which _does_ have a name;
@@ -296,7 +322,7 @@ partitionDDEdges (dde :: ddes) =
      , regs ++ foldr (++) [] moreRegs )
   where
     ||| Split the label's values into dependent and regular values.
-    splitLabelVals :  (vals : Vect (S k) String)
+    splitLabelVals :  (vals : List1 String)
                    -> (acc  : (List String, List String))
                    -> (List String, List String)
     splitLabelVals (v :: []) (ds, rs) =
@@ -312,8 +338,8 @@ partitionDDEdges (dde :: ddes) =
     ||| and regular edges.
     splitEdge : DDEdge -> (List SingleDDEdge, List SingleDDEdge)
     -- splitEdge : DDEdge -> (List DDEdge, List DDEdge)
-    splitEdge (MkDDEdge from to (MkDDLabel vals)) =
-      let (depVals, regVals) = splitLabelVals vals ([], [])
+    splitEdge (MkDDEdge from to label) =
+      let (depVals, regVals) = splitLabelVals label ([], [])
           partialDDEdge = \s => MkSDDE from to [s]
       in (map partialDDEdge depVals, map partialDDEdge regVals)
 
