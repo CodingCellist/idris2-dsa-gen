@@ -146,6 +146,23 @@ DOTAssign DSALabel where
                     prodStr = "!(" ++ valToDOTString prodVal ++ ")"
                 in label (StringID $ cmd ++ argStr ++ depStr ++ prodStr)
 
+||| Converting a `List1 DSALabel` to a DOTAssign converts each of the
+||| `DSALabel`s to their `DOTAssign` representations, and then combines each of
+||| the string representations in the assignments using semicolons (';') as this
+||| is how multiple commands are written in a single label in DOT.
+export
+covering
+DOTAssign (List1 DSALabel) where
+  toAssign dsaLabels = combineStringIDsBy ";" (map toAssign dsaLabels)
+    where
+      getRHS : Assign -> String
+      getRHS (MkAssign _ (StringID str)) = str
+      getRHS _ = assert_total $ idris_crash "Tried to convert a non-StringID to a DOTAssign"
+
+      combineStringIDsBy : (sep : String) -> (stringIDs : List1 Assign) -> Assign
+      combineStringIDsBy sep stringIDs =
+        let combined = joinBy sep (toList $ map getRHS stringIDs)
+        in MkAssign (NameID "label") (StringID combined)
 
 --------------------------------------------------------------------------------
 -- GRAMMAR
