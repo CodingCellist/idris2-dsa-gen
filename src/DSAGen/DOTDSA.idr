@@ -20,11 +20,11 @@ import Data.Either
 -- DOTDSA datatype and components --
 ------------------------------------
 
--- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
-||| Labels are lists of at least one string.
-export
-data DDLabel : Type where
-  MkDDLabel : (vals : Vect (S k) String) -> DDLabel
+---- -- TODO: prove that string is non-empty? and/or that it's a valid Idris name?
+---- ||| Labels are lists of at least one string.
+---- export
+---- data DDLabel : Type where
+----   MkDDLabel : (vals : Vect (S k) String) -> DDLabel
 
 -- FIXME: is this the right name for this?
 export
@@ -75,6 +75,8 @@ data DOTDSAErr : Type where
   NotEdgeStmtErr : (stmt : Stmt) -> DOTDSAErr
   ||| There was a problem with the DOT graph
   DOTGraphErr : (g : Graph) -> DOTDSAErr
+  ||| Tried to process a graph with no statements
+  EmptyStmtsErr : (g : Graph) -> DOTDSAErr
 
 ----------------------
 -- Util and filters --
@@ -106,11 +108,11 @@ isValidIdrName (c :: cs) = isAlpha c && all (\c => isAlphaNum c || c == '_') cs
 ---- ||| value is accepted iff it is a valid Idris name or it is a dependent edge.
 ---- labelValsOK : (vals : List1 String) -> Bool
 ---- labelValsOK vals = all (\v => (isValidIdrName . unpack) v || isDepEdge v) vals
----- 
----- ||| Remove the leading and trailing '"' of the `str` contained in a DOT's `StringID`.
----- cleanStringID : String -> String
----- cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
-----                              -- substr is 0-based  ^
+
+||| Remove the leading and trailing '"' of the `str` contained in a DOT's `StringID`.
+cleanStringID : String -> String
+cleanStringID id_ = substr 1 ((length id_) `minus` 2) id_
+                             -- substr is 0-based  ^
 
 
 -------------------
@@ -226,25 +228,36 @@ handleStmt stmt = Left $ NotEdgeStmtErr stmt
 ||| Convert the given DOT Graph to the subset `DOTDSA`, which describes a DSA.
 export
 toDOTDSA : Graph -> Either DOTDSAErr DOTDSA
-toDOTDSA (MkGraph Nothing DigraphKW (Just n) stmts) =
+toDOTDSA g@(MkGraph Nothing DigraphKW (Just n) stmts) =
   do let Right name = dotToIdentifier n
           | Left nameErr => Left nameErr
-     (e :: es) <- traverse handleStmt stmts
-     pure (DSAGraph name (e :: es))
+     let traversed = traverse handleStmt stmts
+     case traversed of
+          (Left err) => Left err
+          (Right []) => Left $ (EmptyStmtsErr g)
+          (Right (e :: es)) => pure (DSAGraph name (e :: es))
 
 toDOTDSA g = Left $ DOTGraphErr g
+
+---- toDOTDSA (MkGraph Nothing DigraphKW (Just n) stmts) =
+----   do let Right name = dotToIdentifier n
+----           | Left nameErr => Left nameErr
+----      (e :: es) <- traverse handleStmt stmts
+----      pure (DSAGraph name (e :: es))
+---- 
+---- toDOTDSA g = Left $ DOTGraphErr g
 
 
 -----------------------------------
 -- Interfaces for DOTDSA ==> DOT --
 -----------------------------------
 
-export
-DOTAssign DDLabel where
-  toAssign (MkDDLabel vals) =
-    -- each of the values must be comma-separated
-    let valStr = foldr1 (++) $ intersperse ", " vals
-    in MkAssign (NameID "label") (StringID valStr)
+---- export
+---- DOTAssign DDLabel where
+----   toAssign (MkDDLabel vals) =
+----     -- each of the values must be comma-separated
+----     let valStr = foldr1 (++) $ intersperse ", " vals
+----     in MkAssign (NameID "label") (StringID valStr)
 
 export
 DOTDOTID DDIdentifier where
@@ -281,6 +294,8 @@ DOTGraph DOTDSA where
 -- DOTDSA ==> DSA --
 --------------------
 
+||| Add the `from` state of the given `DDEdge` to the accumulator, if it's not
+||| already present.
 addState : (dde : DDEdge) -> (acc : List State) -> List State
 addState (MkDDEdge from to _) acc =
   let fState = newState from
@@ -291,6 +306,9 @@ addState (MkDDEdge from to _) acc =
     addIfMissing : (s : State) -> (acc : List State) -> List State
     addIfMissing s acc = if elem s acc then acc else s :: acc
 
+||| Given a list of dependent edges and an accumulator, traverse the edges and
+||| extract the unique states.
+||| See also: `addState`
 genStates : (ddes : List DDEdge) -> (acc : List State) -> List State
 genStates [] acc = acc
 genStates (dde :: ddes) acc =
@@ -312,36 +330,37 @@ data SingleDDEdge : Type where
 ||| resulting lists may have a combined length greater than the length of the
 ||| input list.
 partitionDDEdges : (ddes : List DDEdge) -> (List SingleDDEdge, List SingleDDEdge)
--- partitionDDEdges : (ddes : List DDEdge) -> (List DDEdge, List DDEdge)
-partitionDDEdges [] = ([], [])
-partitionDDEdges (dde :: ddes) =
-  let (deps     , regs    ) = splitEdge dde
-      (moreDeps , moreRegs) = unzipWith splitEdge ddes
-  -- combine all the lists of lists into one big list (for deps and regs respectively)
-  in ( deps ++ foldr (++) [] moreDeps
-     , regs ++ foldr (++) [] moreRegs )
-  where
-    ||| Split the label's values into dependent and regular values.
-    splitLabelVals :  (vals : List1 String)
-                   -> (acc  : (List String, List String))
-                   -> (List String, List String)
-    splitLabelVals (v :: []) (ds, rs) =
-      if isDepEdge v
-         then (v :: ds , rs     )
-         else (ds      , v :: rs)
-    splitLabelVals (v :: vs@(_ :: _)) (ds, rs) =
-      if isDepEdge v
-         then let acc' = (v :: ds , rs     ) in splitLabelVals vs acc'
-         else let acc' = (ds      , v :: rs) in splitLabelVals vs acc'
 
-    ||| Split a single DDEdge into potentially multiple edges: dependent edges
-    ||| and regular edges.
-    splitEdge : DDEdge -> (List SingleDDEdge, List SingleDDEdge)
-    -- splitEdge : DDEdge -> (List DDEdge, List DDEdge)
-    splitEdge (MkDDEdge from to label) =
-      let (depVals, regVals) = splitLabelVals label ([], [])
-          partialDDEdge = \s => MkSDDE from to [s]
-      in (map partialDDEdge depVals, map partialDDEdge regVals)
+---- -- partitionDDEdges : (ddes : List DDEdge) -> (List DDEdge, List DDEdge)
+---- partitionDDEdges [] = ([], [])
+---- partitionDDEdges (dde :: ddes) =
+----   let (deps     , regs    ) = splitEdge dde
+----       (moreDeps , moreRegs) = unzipWith splitEdge ddes
+----   -- combine all the lists of lists into one big list (for deps and regs respectively)
+----   in ( deps ++ foldr (++) [] moreDeps
+----      , regs ++ foldr (++) [] moreRegs )
+----   where
+----     ||| Split the label's values into dependent and regular values.
+----     splitLabelVals :  (vals : List1 String)
+----                    -> (acc  : (List String, List String))
+----                    -> (List String, List String)
+----     splitLabelVals (v ::: []) (ds, rs) =
+----       if isDepEdge v
+----          then (v :: ds , rs     )
+----          else (ds      , v :: rs)
+----     splitLabelVals (v ::: vs@(_ :: _)) (ds, rs) =
+----       if isDepEdge v
+----          then let acc' = (v :: ds , rs     ) in splitLabelVals vs acc'
+----          else let acc' = (ds      , v :: rs) in splitLabelVals vs acc'
+---- 
+----     ||| Split a single DDEdge into potentially multiple edges: dependent edges
+----     ||| and regular edges.
+----     splitEdge : DDEdge -> (List SingleDDEdge, List SingleDDEdge)
+----     -- splitEdge : DDEdge -> (List DDEdge, List DDEdge)
+----     splitEdge (MkDDEdge from to label) =
+----       let (depVals, regVals) = splitLabelVals label ([], [])
+----           partialDDEdge = \s => MkSDDE from to [s]
+----       in (map partialDDEdge depVals, map partialDDEdge regVals)
 
 ||| Convert a DDEdge describing a single regular edge to a `RegEdge`.
 toRegEdge : (regDDE : SingleDDEdge) -> RegEdge
