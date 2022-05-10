@@ -1,11 +1,19 @@
 module DSAGen.DSLv2
 
+import DSAGen.Lexer
 import DSAGen.Parser
+import Graphics.DOT
 
 import Data.List
 import Data.List1
 import Data.String
 import Data.List.Quantifiers
+
+%default total
+
+--------------------------------------------------------------------------------
+-- DATA TYPES --
+--------------------------------------------------------------------------------
 
 ||| A proof that the `Value` is a data constructor value.
 public export
@@ -17,7 +25,7 @@ public export
 data IsPlainCmd : DSALabel -> Type where
   ItIsPlain : IsPlainCmd (PlainCmd _)
 
-||| A Dependent State Automata is a collection of:
+||| A Dependent State Automaton is a collection of:
 |||   - states         -- a list of `Value`s which must be data constructors
 |||   - regular edges  -- a list of `DSALabel`s which must be commands taking no
 |||                       arguments
@@ -36,4 +44,24 @@ data DSAv2 : Type where
 test : DSAv2
 test =
   MkDSAv2 [(DataVal "S1" Nothing), (DataVal "S2" Nothing)] [] []
+
+
+--------------------------------------------------------------------------------
+-- READING DOT --
+--------------------------------------------------------------------------------
+
+||| The kind of errors that can occur when turning a DOT graph into a DSA.
+public export
+data ToDSAError : Type where
+  ||| The graph was not a graph that can be converted.
+  GraphStructureErr : (g : Graph) -> ToDSAError
+  -- TODO: the other errors
+
+||| Convert the given DOT `Graph` to a `DSAv2`, reporting what went wrong if
+||| anything did.
+export
+toDSAv2 : Graph -> Either ToDSAError DSAv2
+toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
+  ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
+toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
 
