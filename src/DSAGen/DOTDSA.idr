@@ -3,7 +3,8 @@ module DSAGen.DOTDSA
 import Graphics.DOT
 
 import DSAGen.DSL
-import DSAGen.Label
+import DSAGen.Lexer
+import DSAGen.Parser
 
 import Data.List
 import Data.List1
@@ -330,6 +331,15 @@ data SingleDDEdge : Type where
 ||| resulting lists may have a combined length greater than the length of the
 ||| input list.
 partitionDDEdges : (ddes : List DDEdge) -> (List SingleDDEdge, List SingleDDEdge)
+partitionDDEdges [] = ([], [])
+partitionDDEdges ((MkDDEdge from to ((PlainCmd cmd) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_3
+partitionDDEdges ((MkDDEdge from to ((TakeCmd cmd arg) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_4
+partitionDDEdges ((MkDDEdge from to ((DepCmd cmd dep) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_5
+partitionDDEdges ((MkDDEdge from to ((ProdCmd cmd res) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_6
+partitionDDEdges ((MkDDEdge from to ((TDCmd cmd arg dep) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_7
+partitionDDEdges ((MkDDEdge from to ((TPCmd cmd arg res) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_8
+partitionDDEdges ((MkDDEdge from to ((DPCmd cmd dep res) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_9
+partitionDDEdges ((MkDDEdge from to ((TDPCmd cmd arg dep res) ::: tail)) :: ddes) = ?partitionDDEdges_rhs_10
 
 ---- -- partitionDDEdges : (ddes : List DDEdge) -> (List DDEdge, List DDEdge)
 ---- partitionDDEdges [] = ([], [])

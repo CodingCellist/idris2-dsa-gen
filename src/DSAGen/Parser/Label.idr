@@ -1,8 +1,8 @@
-module DSAGen.Label.Parser
+module DSAGen.Parser.Label
 
 import Graphics.DOT
 
-import DSAGen.Label.Lexer
+import DSAGen.Lexer.Label
 
 import public Text.Parser
 import Data.List1

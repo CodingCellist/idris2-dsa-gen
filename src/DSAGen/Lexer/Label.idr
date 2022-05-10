@@ -1,4 +1,4 @@
-module DSAGen.Label.Lexer
+module DSAGen.Lexer.Label
 
 import public Text.Lexer
 
