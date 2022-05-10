@@ -19,6 +19,8 @@ modules = DSAGen
         , DSAGen.Lexer
         , DSAGen.Lexer.Label
         , DSAGen.Parser
+        , DSAGen.Parser.Common
+        , DSAGen.Parser.Value
         , DSAGen.Parser.Label
 
 -- main file (i.e. file to load at REPL)
