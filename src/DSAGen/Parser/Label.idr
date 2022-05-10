@@ -2,7 +2,7 @@ module DSAGen.Parser.Label
 
 import Graphics.DOT
 
-import DSAGen.Lexer.Label
+import DSAGen.Lexer.Common
 import DSAGen.Parser.Common
 import DSAGen.Parser.Value
 

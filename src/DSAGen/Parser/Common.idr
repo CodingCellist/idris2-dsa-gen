@@ -5,7 +5,7 @@ import public Text.Parser
 import Data.String
 
 import Graphics.DOT
-import DSAGen.Lexer.Label
+import DSAGen.Lexer.Common
 
 %default total
 

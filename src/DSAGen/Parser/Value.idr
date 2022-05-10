@@ -1,7 +1,7 @@
 module DSAGen.Parser.Value
 
 import Graphics.DOT
-import DSAGen.Lexer.Label
+import DSAGen.Lexer.Common
 import DSAGen.Parser.Common
 
 import Data.List1

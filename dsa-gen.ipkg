@@ -17,7 +17,7 @@ modules = DSAGen
         , DSAGen.DSL
         , DSAGen.DOTDSA
         , DSAGen.Lexer
-        , DSAGen.Lexer.Label
+        , DSAGen.Lexer.Common
         , DSAGen.Parser
         , DSAGen.Parser.Common
         , DSAGen.Parser.Value
