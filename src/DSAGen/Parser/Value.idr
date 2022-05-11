@@ -106,8 +106,8 @@ numLit = terminal "Expected a number literal"
 ------------
 
 mutual
-  ||| A value can be one of: a data constructor, an addition expression, an Idris
-  ||| name, or a literal number.
+  ||| A value can be one of: a data constructor, an addition expression, an
+  ||| Idris name, or a literal number.
   export
   %inline
   value : Grammar _ LabelTok True Value
@@ -177,4 +177,13 @@ mutual
                  snd <- value
                  pure (Tuple fst snd)
 
+--------------------------------------------------------------------------------
+-- VALUE PARSER
+--------------------------------------------------------------------------------
+
+||| Parse a string containing an Idris value
+export
+parseValue :  List (WithBounds LabelTok)
+           -> Either (List1 (ParsingError LabelTok)) (?ty, List (WithBounds LabelTok))
+parseValue toks = parse value toks
 

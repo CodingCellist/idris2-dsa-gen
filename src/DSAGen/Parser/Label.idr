@@ -240,9 +240,10 @@ tdpCmd = do cmd <- cmdName
             val <- prodArg
             pure (TDPCmd cmd arg deps val)
 
-----------------
--- The parser --
-----------------
+
+--------------------------------------------------------------------------------
+-- LABEL PARSER
+--------------------------------------------------------------------------------
 
 label : Grammar _ LabelTok True DSALabel
 label =  tdpCmd
@@ -256,7 +257,7 @@ label =  tdpCmd
 
 ||| Parse a label containing a DSA command
 export
-parse :  List (WithBounds LabelTok)
+parseLabel :  List (WithBounds LabelTok)
       -> Either (List1 (ParsingError LabelTok)) (DSALabel, List (WithBounds LabelTok))
-parse toks = parse label toks
+parseLabel toks = parse label toks
 
