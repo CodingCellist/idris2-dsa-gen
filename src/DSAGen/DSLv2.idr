@@ -51,6 +51,10 @@ test =
 -- READING DOT --
 --------------------------------------------------------------------------------
 
+------------
+-- Errors --
+------------
+
 ||| The kind of errors that can occur when turning a DOT graph into a DSA.
 public export
 data ToDSAError : Type where
@@ -79,6 +83,10 @@ data ToDSAError : Type where
                       -> ToDSAError
   -- TODO: the other errors
 
+-----------
+-- Utils --
+-----------
+
 ||| Convert the given string to a valid Idris value, if it is one.
 stringToIdrisValue : String -> Either ToDSAError Value
 stringToIdrisValue s =
@@ -89,6 +97,10 @@ stringToIdrisValue s =
      case parsed of
           (val, []) => pure val
           (val, rem@(_ :: _)) => Left $ ValueRemainderError s rem
+
+--------------
+-- DSA Name --
+--------------
 
 ||| Check that the given DOTID is a valid name for a DSA, returning the plain
 ||| string form of the name if it is, and an error if it isn't.
@@ -113,6 +125,24 @@ dotidToDSAName dotid@(NameID nameID) =
        (Right _) => Left $ DSANameError dotid
 
 dotidToDSAName dotid = Left $ DSANameError dotid
+
+------------
+-- States --
+------------
+
+nodeStmtToState : Stmt -> Either ToDSAError ?TODO1
+
+
+dotStmtToState : Stmt -> Either ToDSAError ?TODO2
+dotStmtToState (NodeStmt nodeID attrList) = ?dotStmtToState_rhs_0
+dotStmtToState (EdgeStmt x rhs attrList) = ?dotStmtToState_rhs_1
+dotStmtToState (AttrStmt kw attrList) = ?dotStmtToState_rhs_2
+dotStmtToState (AssignStmt a) = ?dotStmtToState_rhs_3
+dotStmtToState (SubgraphStmt subGr) = ?dotStmtToState_rhs_4
+
+-----------
+-- toDSA --
+-----------
 
 ||| Convert the given DOT `Graph` to a `DSAv2`, reporting what went wrong if
 ||| anything did.
