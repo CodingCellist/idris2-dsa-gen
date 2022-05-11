@@ -184,6 +184,6 @@ mutual
 ||| Parse a string containing an Idris value
 export
 parseValue :  List (WithBounds LabelTok)
-           -> Either (List1 (ParsingError LabelTok)) (?ty, List (WithBounds LabelTok))
+           -> Either (List1 (ParsingError LabelTok)) (Value, List (WithBounds LabelTok))
 parseValue toks = parse value toks
 

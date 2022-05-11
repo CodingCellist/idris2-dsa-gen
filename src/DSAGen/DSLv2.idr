@@ -25,7 +25,7 @@ public export
 data IsPlainCmd : DSALabel -> Type where
   ItIsPlain : IsPlainCmd (PlainCmd _)
 
-||| A Dependent State Automaton is a collection of:
+||| A Dependent State Automaton has a name, and is a collection of:
 |||   - states         -- a list of `Value`s which must be data constructors
 |||   - regular edges  -- a list of `DSALabel`s which must be commands taking no
 |||                       arguments
@@ -33,7 +33,8 @@ data IsPlainCmd : DSALabel -> Type where
 |||                       the regular edges
 public export
 data DSAv2 : Type where
-  MkDSAv2 :  (states : List Value)
+  MkDSAv2 :  (dsaName : String)
+          -> (states : List Value)
           -> {auto 0 statesOK : All IsDataVal states}
           -> (regEdges : List DSALabel)
           -> {auto 0 regsOK : All IsPlainCmd regEdges}
@@ -43,7 +44,7 @@ data DSAv2 : Type where
 
 test : DSAv2
 test =
-  MkDSAv2 [(DataVal "S1" Nothing), (DataVal "S2" Nothing)] [] []
+  MkDSAv2 "Test" [(DataVal "S1" Nothing), (DataVal "S2" Nothing)] [] []
 
 
 --------------------------------------------------------------------------------
@@ -54,14 +55,68 @@ test =
 public export
 data ToDSAError : Type where
   ||| The graph was not a graph that can be converted.
-  GraphStructureErr : (g : Graph) -> ToDSAError
+  GraphStructureError : (g : Graph) -> ToDSAError
+
+  ||| The given DOTID was not a valid Idris name.
+  IdrisNameError : (id_ : DOTID) -> ToDSAError
+
+  ||| It was not possible to lex the given String completely.
+  UnknownLexemeError :  (toLex : String)
+                     -> (rem : (Int, Int, String))
+                     -> ToDSAError
+
+  ||| There was an error when parsing the String as a Value
+  ValueParseError :  (concerning : String)
+                  -> (parseErrors : List1 (ParsingError LabelTok))
+                  -> ToDSAError
+
+  ||| It was not possible to parse the given String completely.
+  ValueRemainderError :  (concerning : String)
+                      -> (rem : List (WithBounds LabelTok))
+                      -> ToDSAError
   -- TODO: the other errors
+
+||| Convert the given string to a valid Idris value, if it is one.
+stringToIdrisValue : String -> Either ToDSAError Value
+stringToIdrisValue s =
+  do let (toks, (_, _, "")) = lex s
+          | (toks, rem) => Left $ UnknownLexemeError s rem
+     let (Right parsed) = parseValue toks
+          | Left pErrors => Left $ ValueParseError s pErrors
+     case parsed of
+          (val, []) => pure val
+          (val, rem@(_ :: _)) => Left $ ValueRemainderError s rem
+
+||| Check that the given DOTID is a valid Idris name, returning the plain string
+||| form of the name if it is, and an error if it isn't.
+dotidToIdrisName : DOTID -> Either ToDSAError String
+dotidToIdrisName dotid@(StringID id_) =
+  let idStr = substr 1 ((length id_) `minus` 2) id_   -- StringID includes \"
+  in case stringToIdrisValue idStr of
+          (Left e@(UnknownLexemeError _ _)) => Left e
+          (Left e@(ValueParseError _ _)) => Left e
+          (Left e@(ValueRemainderError _ _)) => Left e
+          (Left _) => Left $ IdrisNameError dotid
+          (Right (IdrName name)) => pure name
+          (Right _) => Left $ IdrisNameError dotid
+
+dotidToIdrisName dotid@(NameID nameID) =
+  case stringToIdrisValue nameID of
+       (Left e@(UnknownLexemeError _ _)) => Left e
+       (Left e@(ValueParseError _ _)) => Left e
+       (Left e@(ValueRemainderError _ _)) => Left e
+       (Left _) => Left $ IdrisNameError dotid
+       (Right (IdrName name)) => pure name
+       (Right _) => Left $ IdrisNameError dotid
+
+dotidToIdrisName dotid = Left $ IdrisNameError dotid
 
 ||| Convert the given DOT `Graph` to a `DSAv2`, reporting what went wrong if
 ||| anything did.
 export
 toDSAv2 : Graph -> Either ToDSAError DSAv2
 toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
-  ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
+  do dsaName <- dotidToIdrisName id_
+     ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
 toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
 
