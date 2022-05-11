@@ -57,6 +57,9 @@ data ToDSAError : Type where
   ||| The graph was not a graph that can be converted.
   GraphStructureError : (g : Graph) -> ToDSAError
 
+  ||| The given DOTID was not a valid DSA name.
+  DSANameError : (id_ : DOTID) -> ToDSAError
+
   ||| The given DOTID was not a valid Idris name.
   IdrisNameError : (id_ : DOTID) -> ToDSAError
 
@@ -87,36 +90,36 @@ stringToIdrisValue s =
           (val, []) => pure val
           (val, rem@(_ :: _)) => Left $ ValueRemainderError s rem
 
-||| Check that the given DOTID is a valid Idris name, returning the plain string
-||| form of the name if it is, and an error if it isn't.
-dotidToIdrisName : DOTID -> Either ToDSAError String
-dotidToIdrisName dotid@(StringID id_) =
+||| Check that the given DOTID is a valid name for a DSA, returning the plain
+||| string form of the name if it is, and an error if it isn't.
+dotidToDSAName : DOTID -> Either ToDSAError String
+dotidToDSAName dotid@(StringID id_) =
   let idStr = substr 1 ((length id_) `minus` 2) id_   -- StringID includes \"
   in case stringToIdrisValue idStr of
           (Left e@(UnknownLexemeError _ _)) => Left e
           (Left e@(ValueParseError _ _)) => Left e
           (Left e@(ValueRemainderError _ _)) => Left e
-          (Left _) => Left $ IdrisNameError dotid
-          (Right (IdrName name)) => pure name
-          (Right _) => Left $ IdrisNameError dotid
+          (Left _) => Left $ DSANameError dotid
+          (Right (DataVal dc Nothing)) => pure dc
+          (Right _) => Left $ DSANameError dotid
 
-dotidToIdrisName dotid@(NameID nameID) =
+dotidToDSAName dotid@(NameID nameID) =
   case stringToIdrisValue nameID of
        (Left e@(UnknownLexemeError _ _)) => Left e
        (Left e@(ValueParseError _ _)) => Left e
        (Left e@(ValueRemainderError _ _)) => Left e
-       (Left _) => Left $ IdrisNameError dotid
-       (Right (IdrName name)) => pure name
-       (Right _) => Left $ IdrisNameError dotid
+       (Left _) => Left $ DSANameError dotid
+       (Right (DataVal dc Nothing)) => pure dc
+       (Right _) => Left $ DSANameError dotid
 
-dotidToIdrisName dotid = Left $ IdrisNameError dotid
+dotidToDSAName dotid = Left $ DSANameError dotid
 
 ||| Convert the given DOT `Graph` to a `DSAv2`, reporting what went wrong if
 ||| anything did.
 export
 toDSAv2 : Graph -> Either ToDSAError DSAv2
 toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
-  do dsaName <- dotidToIdrisName id_
+  do dsaName <- dotidToDSAName id_
      ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
 toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
 
