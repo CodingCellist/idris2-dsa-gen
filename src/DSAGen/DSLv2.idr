@@ -6,6 +6,7 @@ import Graphics.DOT
 
 import Data.List
 import Data.List1
+import Data.DPair
 import Data.String
 import Data.List.Quantifiers
 
@@ -130,15 +131,32 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 -- States --
 ------------
 
-nodeStmtToState : Stmt -> Either ToDSAError ?TODO1
-
-
-dotStmtToState : Stmt -> Either ToDSAError ?TODO2
+dotStmtToState : Stmt -> Either ToDSAError (Subset Value IsDataVal)
 dotStmtToState (NodeStmt nodeID attrList) = ?dotStmtToState_rhs_0
 dotStmtToState (EdgeStmt x rhs attrList) = ?dotStmtToState_rhs_1
 dotStmtToState (AttrStmt kw attrList) = ?dotStmtToState_rhs_2
 dotStmtToState (AssignStmt a) = ?dotStmtToState_rhs_3
 dotStmtToState (SubgraphStmt subGr) = ?dotStmtToState_rhs_4
+
+||| Convert the DOT `Stmt`s to states in a DSA, accumulating the states in the
+||| given accumulator iff the state to add is unique.
+covering
+dotStmtsToAccStates :  List Stmt
+                    -> (acc : List (Subset Value IsDataVal))
+                    -> Either ToDSAError (List (Subset Value IsDataVal))
+dotStmtsToAccStates [] acc = pure acc
+dotStmtsToAccStates (stmt :: stmts) acc =
+  do state <- dotStmtToState stmt
+     if elem state acc
+        then dotStmtsToAccStates stmts acc
+        else dotStmtsToAccStates stmts (state :: acc)
+
+||| Convert the DOT `Stmt`s to states in a DSA.
+covering
+dotStmtsToStates :  (stmts : List Stmt)
+                 -> Either ToDSAError (Subset (List Value) (All IsDataVal))
+dotStmtsToStates stmts = do states <- dotStmtsToAccStates stmts []
+                            pure $ pullOut states
 
 -----------
 -- toDSA --
@@ -147,9 +165,11 @@ dotStmtToState (SubgraphStmt subGr) = ?dotStmtToState_rhs_4
 ||| Convert the given DOT `Graph` to a `DSAv2`, reporting what went wrong if
 ||| anything did.
 export
+covering
 toDSAv2 : Graph -> Either ToDSAError DSAv2
 toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
   do dsaName <- dotidToDSAName id_
+     states <- dotStmtsToStates stmtList
      ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
 toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
 
