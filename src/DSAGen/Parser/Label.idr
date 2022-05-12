@@ -115,6 +115,54 @@ DOTAssign (List1 DSALabel) where
         let combined = joinBy sep (toList $ map getRHS stringIDs)
         in MkAssign (NameID "label") (StringID combined)
 
+--------
+-- Eq --
+--------
+
+export
+covering
+Eq TakeArg where
+  (==) (Takes arg1) (Takes arg2) = arg1 == arg2
+
+export
+covering
+Eq DepArg where
+  (==) (DepsOn dep1) (DepsOn dep2) = dep1 == dep2
+
+export
+covering
+Eq ProdArg where
+  (==) (Produce val1) (Produce val2) = val1 == val2
+
+export
+covering
+Eq DSALabel where
+  (==) (PlainCmd cmd1) (PlainCmd cmd2) = cmd1 == cmd2
+
+  (==) (TakeCmd cmd1 arg1) (TakeCmd cmd2 arg2) =
+    cmd1 == cmd2 && arg1 == arg2
+
+  (==) (DepCmd cmd1 dep1) (DepCmd cmd2 dep2) =
+    cmd1 == cmd2 && dep1 == dep2
+
+  (==) (ProdCmd cmd1 res1) (ProdCmd cmd2 res2) =
+    cmd1 == cmd2 && res1 == res2
+
+  (==) (TDCmd cmd1 arg1 dep1) (TDCmd cmd2 arg2 dep2) =
+    cmd1 == cmd2 && arg1 == arg2 && dep1 == dep2
+
+  (==) (TPCmd cmd1 arg1 res1) (TPCmd cmd2 arg2 res2) =
+    cmd1 == cmd2 && arg1 == arg2 && res1 == res2
+
+  (==) (DPCmd cmd1 dep1 res1) (DPCmd cmd2 dep2 res2) =
+    cmd1 == cmd2 && dep1 == dep2 && res1 == res2
+
+  (==) (TDPCmd cmd1 arg1 dep1 res1) (TDPCmd cmd2 arg2 dep2 res2) =
+    cmd1 == cmd2 && arg1 == arg2 && dep1 == dep2 && res1 == res2
+
+  (==) _ _ = False
+
+
 
 --------------------------------------------------------------------------------
 -- GRAMMAR

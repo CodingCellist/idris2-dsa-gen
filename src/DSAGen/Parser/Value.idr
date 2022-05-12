@@ -35,22 +35,6 @@ data Value : Type where
 -- INTERFACES
 --------------------------------------------------------------------------------
 
-----------
--- Show --
-----------
-
-export
-covering
-Show Value where
-  show (IdrName n) = "(IdrName " ++ n ++ ")"
-  show (LitVal lit) = "(LitVal " ++ show lit ++ ")"
-  show (DataVal dc Nothing) = "(DataVal " ++ dc ++ ")"
-  show (DataVal dc (Just args)) =
-    "(DataVal " ++ dc ++ " " ++ joinBy " " (toList $ map show args)
-  show (AddExpr num addend) =
-    "(AddExpr " ++ joinBy " " [show num, show addend] ++ ")"
-  show (Tuple fst snd) = "(Tuple " ++ joinBy " " [show fst, show snd] ++ ")"
-
 ---------
 -- DOT --
 ---------
@@ -74,6 +58,40 @@ export
 covering
 DOTDOTID Value where
   toDOTID val = StringID (valToDOTString val)
+
+----------
+-- Show --
+----------
+
+export
+covering
+Show Value where
+  show (IdrName n) = "(IdrName " ++ n ++ ")"
+  show (LitVal lit) = "(LitVal " ++ show lit ++ ")"
+  show (DataVal dc Nothing) = "(DataVal " ++ dc ++ ")"
+  show (DataVal dc (Just args)) =
+    "(DataVal " ++ dc ++ " " ++ joinBy " " (toList $ map show args)
+  show (AddExpr num addend) =
+    "(AddExpr " ++ joinBy " " [show num, show addend] ++ ")"
+  show (Tuple fst snd) = "(Tuple " ++ joinBy " " [show fst, show snd] ++ ")"
+
+--------
+-- Eq --
+--------
+
+export
+covering
+Eq Value where
+  (==) (IdrName n1) (IdrName n2) = n1 == n2
+  (==) (LitVal lit1) (LitVal lit2) = lit1 == lit2
+  (==) (DataVal dc1 Nothing) (DataVal dc2 Nothing) = dc1 == dc2
+  (==) (DataVal dc1 (Just args1)) (DataVal dc2 (Just args2)) =
+    dc1 == dc2 && args1 == args2
+  (==) (AddExpr num1 addend1) (AddExpr num2 addend2) =
+    num1 == num2 && addend1 == addend2
+  (==) (Tuple fst1 snd1) (Tuple fst2 snd2) = fst1 == fst2 && snd1 == snd2
+  (==) _ _ = False
+
 
 --------------------------------------------------------------------------------
 -- GRAMMAR
