@@ -82,11 +82,23 @@ data ToDSAError : Type where
   ValueRemainderError :  (concerning : String)
                       -> (rem : List (WithBounds LabelTok))
                       -> ToDSAError
+
+  ||| The given Stmt cannot be converted to a DSA state
+  StmtStateError : (stmt : Stmt) -> ToDSAError
+
+  ||| The given String cannot be converted to an Idris data constructor value
+  StringDataValError : (str : String) -> ToDSAError
   -- TODO: the other errors
 
 -----------
 -- Utils --
 -----------
+
+||| Removes the outer double-quotes (") from a string which was contained in a
+||| StringID.
+%inline
+cleanStringIDString : String -> String
+cleanStringIDString id_ = substr 1 ((length id_) `minus` 2) id_
 
 ||| Convert the given string to a valid Idris value, if it is one.
 stringToIdrisValue : String -> Either ToDSAError Value
@@ -99,6 +111,15 @@ stringToIdrisValue s =
           (val, []) => pure val
           (val, rem@(_ :: _)) => Left $ ValueRemainderError s rem
 
+||| Convert the given string to a valid Idris data constructor value, if it is
+||| one.
+stringToIdrisDataVal : String -> Either ToDSAError (Subset Value IsDataVal)
+stringToIdrisDataVal s =
+  do val <- stringToIdrisValue s
+     case val of
+          dv@(DataVal dc args) => pure (Element dv ItIsDataVal)
+          _ => Left $ StringDataValError s
+
 --------------
 -- DSA Name --
 --------------
@@ -107,7 +128,7 @@ stringToIdrisValue s =
 ||| string form of the name if it is, and an error if it isn't.
 dotidToDSAName : DOTID -> Either ToDSAError String
 dotidToDSAName dotid@(StringID id_) =
-  let idStr = substr 1 ((length id_) `minus` 2) id_   -- StringID includes \"
+  let idStr = cleanStringIDString id_   -- StringID includes \"
   in case stringToIdrisValue idStr of
           (Left e@(UnknownLexemeError _ _)) => Left e
           (Left e@(ValueParseError _ _)) => Left e
@@ -131,12 +152,23 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 -- States --
 ------------
 
+||| Convert a DOT `Stmt` to a DSA state.
+|||
+||| A `Stmt` is a state iff it is:
+|||   - a `NodeStmt` without any attributes, containing either a `NameID` or a
+|||     `StringID`, whose value is a valid Idris data constructor;
+|||   OR
+|||   - an `EdgeStmt` not involving a subgraph, TODO...
 dotStmtToState : Stmt -> Either ToDSAError (Subset Value IsDataVal)
-dotStmtToState (NodeStmt nodeID attrList) = ?dotStmtToState_rhs_0
-dotStmtToState (EdgeStmt x rhs attrList) = ?dotStmtToState_rhs_1
-dotStmtToState (AttrStmt kw attrList) = ?dotStmtToState_rhs_2
-dotStmtToState (AssignStmt a) = ?dotStmtToState_rhs_3
-dotStmtToState (SubgraphStmt subGr) = ?dotStmtToState_rhs_4
+dotStmtToState (NodeStmt (MkNodeID (NameID name) _) [[]]) =
+  stringToIdrisDataVal name
+dotStmtToState (NodeStmt (MkNodeID (StringID id_) _) [[]]) =
+  stringToIdrisDataVal $ cleanStringIDString id_
+
+dotStmtToState (EdgeStmt (Left nodeID) rhs attrList) = ?dotStmtToState_rhs_5
+
+dotStmtToState stmt = Left $ StmtStateError stmt
+-- FIXME: Show Edwin this: dotStmtToState stmt = Left $ ?searchme
 
 ||| Convert the DOT `Stmt`s to states in a DSA, accumulating the states in the
 ||| given accumulator iff the state to add is unique.
