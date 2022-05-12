@@ -88,6 +88,9 @@ data ToDSAError : Type where
 
   ||| The given String cannot be converted to an Idris data constructor value
   StringDataValError : (str : String) -> ToDSAError
+
+  ||| The given assignment was not an assignment from "label" to a command
+  AssignCmdError : (attr : Assign) -> ToDSAError
   -- TODO: the other errors
 
 -----------
@@ -152,6 +155,14 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 -- States --
 ------------
 
+||| Extracts the right hand side (rhs) of the assignment, if the given `Assign`
+||| is an assignment from the word "label" (either as a `StringID` or a
+||| `NameID`) to a `StringID` rhs. Helper-function for `dotStmtToState`.
+getAssignLabelString : Assign -> Either ToDSAError String
+getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) = pure rhs
+getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) = pure rhs
+getAssignLabelString attr = Left $ AssignCmdError attr
+
 ||| Convert a DOT `Stmt` to a DSA state.
 |||
 ||| A `Stmt` is a state iff it is:
@@ -165,10 +176,11 @@ dotStmtToState (NodeStmt (MkNodeID (NameID name) _) [[]]) =
 dotStmtToState (NodeStmt (MkNodeID (StringID id_) _) [[]]) =
   stringToIdrisDataVal $ cleanStringIDString id_
 
-dotStmtToState (EdgeStmt (Left nodeID) rhs attrList) = ?dotStmtToState_rhs_5
+dotStmtToState stmt@(EdgeStmt (Left lhsID) ((MkEdgeRHS Arrow (Left rhsID)) ::: []) [(attr :: _)]) =
+  do attrRHS <- getAssignLabelString attr
+     ?dotStmtToState_rhs_8    -- TODO
 
 dotStmtToState stmt = Left $ StmtStateError stmt
--- FIXME: Show Edwin this: dotStmtToState stmt = Left $ ?searchme
 
 ||| Convert the DOT `Stmt`s to states in a DSA, accumulating the states in the
 ||| given accumulator iff the state to add is unique.
