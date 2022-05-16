@@ -17,16 +17,19 @@ import Data.String
 
 ||| Taking an argument
 |||   ":(val)"
+public export
 data TakeArg : Type where
   Takes : (val : Value) -> TakeArg
 
 ||| Depending on a value
 |||   "?(val)"
+public export
 data DepArg : Type where
   DepsOn : (val : Value) -> DepArg
 
 ||| Producing a value
 |||   "!(val)"
+public export
 data ProdArg : Type where
   Produce : (val : Value) -> ProdArg
 

@@ -13,8 +13,12 @@ import Data.List.Quantifiers
 %default total
 
 --------------------------------------------------------------------------------
--- DATA TYPES --
+-- DATA TYPES
 --------------------------------------------------------------------------------
+
+------------
+-- Proofs --
+------------
 
 ||| A proof that the `Value` is a data constructor value.
 public export
@@ -25,6 +29,34 @@ data IsDataVal : Value -> Type where
 public export
 data IsPlainCmd : DSALabel -> Type where
   ItIsPlain : IsPlainCmd (PlainCmd _)
+
+-- we need the following `Uninhabited` instances for returning provably
+-- non-plain commands
+
+Uninhabited (IsPlainCmd (TakeCmd _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (DepCmd _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (ProdCmd _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (TDCmd _ _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (TPCmd _ _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (DPCmd _ _ _)) where
+  uninhabited ItIsPlain impossible
+
+Uninhabited (IsPlainCmd (TDPCmd _ _  _ _)) where
+  uninhabited ItIsPlain impossible
+
+------------------------------
+-- Dependent State Automata --
+------------------------------
 
 ||| A Dependent State Automaton has a name, and is a collection of:
 |||   - states         -- a list of `Value`s which must be data constructors
@@ -73,24 +105,36 @@ data ToDSAError : Type where
                      -> (rem : (Int, Int, String))
                      -> ToDSAError
 
-  ||| There was an error when parsing the String as a Value
+  ||| There was an error when parsing the String as a Value.
   ValueParseError :  (concerning : String)
                   -> (parseErrors : List1 (ParsingError LabelTok))
                   -> ToDSAError
 
   ||| It was not possible to parse the given String completely.
-  ValueRemainderError :  (concerning : String)
+  ParseRemainderError :  (concerning : String)
                       -> (rem : List (WithBounds LabelTok))
                       -> ToDSAError
 
-  ||| The given Stmt cannot be converted to a DSA state
+  ||| The given Stmt cannot be converted to a DSA state.
   StmtStateError : (stmt : Stmt) -> ToDSAError
 
-  ||| The given String cannot be converted to an Idris data constructor value
+  ||| The given String cannot be converted to an Idris data constructor value.
   StringDataValError : (str : String) -> ToDSAError
 
-  ||| The given assignment was not an assignment from "label" to a command
-  AssignCmdError : (attr : Assign) -> ToDSAError
+  ||| The given assignment was not an assignment from "label".
+  AssignLabelError : (attr : Assign) -> ToDSAError
+
+  ||| There was an error when parsing the String as a DSALabel.
+  DSALabelParseError :  (concerning : String)
+                     -> (parseErrors : List1 (ParsingError LabelTok))
+                     -> ToDSAError
+
+  ||| The given String cannot be converted to a plain DSA command.
+  StringPlainCommandError : (str : String) -> ToDSAError
+
+  ||| The given String cannot be converted to a non-plain DSA command.
+  StringComplexCommandError : (str : String) -> ToDSAError
+
   -- TODO: the other errors
 
 -----------
@@ -112,7 +156,7 @@ stringToIdrisValue s =
           | Left pErrors => Left $ ValueParseError s pErrors
      case parsed of
           (val, []) => pure val
-          (val, rem@(_ :: _)) => Left $ ValueRemainderError s rem
+          (val, rem@(_ :: _)) => Left $ ParseRemainderError s rem
 
 ||| Convert the given string to a valid Idris data constructor value, if it is
 ||| one.
@@ -122,6 +166,45 @@ stringToIdrisDataVal s =
      case val of
           dv@(DataVal dc args) => pure (Element dv ItIsDataVal)
           _ => Left $ StringDataValError s
+
+||| Convert the given string to a valid DSA label, if it is one.
+stringToDSALabel : String -> Either ToDSAError DSALabel
+stringToDSALabel s =
+  do let (toks, (_, _, "")) = lex s
+          | (toks, rem) => Left $ UnknownLexemeError s rem
+     let (Right parsed) = parseLabel toks
+          | Left pErrors => Left $ DSALabelParseError s pErrors
+     case parsed of
+          (dsaLabel, []) => pure dsaLabel
+          (dsaLabel, rem@(_ :: _)) => Left $ ParseRemainderError s rem
+
+||| Convert the given string to a valid, plain DSA command, if it is one.
+|||
+||| See also: `IsPlainCmd`.
+stringToPlainCmd : String -> Either ToDSAError (Subset DSALabel IsPlainCmd)
+stringToPlainCmd s =
+  do cmd <- stringToDSALabel s
+     case cmd of
+          (PlainCmd _) => pure (Element cmd ItIsPlain)
+          _ => Left $ StringPlainCommandError s
+
+||| Convert the given string to a valid, non-plain DSA command, if it is one.
+|||
+||| See also: `IsPlainCmd`
+stringToComplexCmd :  String
+                   -> Either ToDSAError (Subset DSALabel (Not . IsPlainCmd))
+stringToComplexCmd s =
+  do cmd <- stringToDSALabel s
+     case cmd of
+          (PlainCmd _) => Left $ StringComplexCommandError s
+          -- need each case separately for proof reasons
+          (TakeCmd _ _) => pure (Element cmd uninhabited)
+          (DepCmd _ _) => pure (Element cmd uninhabited)
+          (ProdCmd _ _) => pure (Element cmd uninhabited)
+          (TDCmd _ _ _) => pure (Element cmd uninhabited)
+          (TPCmd _ _ _) => pure (Element cmd uninhabited)
+          (DPCmd _ _ _) => pure (Element cmd uninhabited)
+          (TDPCmd _ _ _ _) => pure (Element cmd uninhabited)
 
 --------------
 -- DSA Name --
@@ -135,7 +218,7 @@ dotidToDSAName dotid@(StringID id_) =
   in case stringToIdrisValue idStr of
           (Left e@(UnknownLexemeError _ _)) => Left e
           (Left e@(ValueParseError _ _)) => Left e
-          (Left e@(ValueRemainderError _ _)) => Left e
+          (Left e@(ParseRemainderError _ _)) => Left e
           (Left _) => Left $ DSANameError dotid
           (Right (DataVal dc Nothing)) => pure dc
           (Right _) => Left $ DSANameError dotid
@@ -144,7 +227,7 @@ dotidToDSAName dotid@(NameID nameID) =
   case stringToIdrisValue nameID of
        (Left e@(UnknownLexemeError _ _)) => Left e
        (Left e@(ValueParseError _ _)) => Left e
-       (Left e@(ValueRemainderError _ _)) => Left e
+       (Left e@(ParseRemainderError _ _)) => Left e
        (Left _) => Left $ DSANameError dotid
        (Right (DataVal dc Nothing)) => pure dc
        (Right _) => Left $ DSANameError dotid
@@ -161,7 +244,7 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 getAssignLabelString : Assign -> Either ToDSAError String
 getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) = pure rhs
 getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) = pure rhs
-getAssignLabelString attr = Left $ AssignCmdError attr
+getAssignLabelString attr = Left $ AssignLabelError attr
 
 ||| Convert a DOT `Stmt` to a DSA state.
 |||
