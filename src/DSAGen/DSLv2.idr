@@ -262,43 +262,59 @@ nodeIDToState (MkNodeID (StringID id_) _) =
   stringToIdrisDataVal $ cleanStringIDString id_
 nodeIDToState nid = Left $ NodeIDStateError nid
 
-||| Convert a DOT `Stmt` to a DSA state.
+||| Convert a DOT `NodeStmt` to a single DSA state.
 |||
-||| A `Stmt` is a state iff it is:
-|||   - a `NodeStmt` without any attributes, containing either a `NameID` or a
-|||     `StringID`, whose value is a valid Idris data constructor;
-|||   OR
-|||   - an `EdgeStmt` not involving a subgraph, TODO...
+||| A `NodeStmt` is a state iff it doesn't have any attributes; and it contains
+||| either a `NameID` or a `StringID`, whose value is a valid Idris data
+||| constructor.
+nodeStmtToState : Stmt -> Either ToDSAError (Subset Value IsDataVal)
+nodeStmtToState (NodeStmt nid [[]]) = nodeIDToState nid
+nodeStmtToState stmt = Left $ StmtStateError stmt
+
+||| Convert a DOT `EdgeRHS` to a DSA state.
+|||
+||| An `EdgeStmt` is a state iff it is an `EdgeStmt` not involving a subgraph,
+||| TODO...
 covering
-dotStmtToState : Stmt -> Either ToDSAError (List1 $ Subset Value IsDataVal)
-dotStmtToState (NodeStmt nid [[]]) =
-  do state <-nodeIDToState nid
-     pure $ singleton state
+edgeRHSToState : EdgeRHS -> Either ToDSAError (Subset Value IsDataVal)
+edgeRHSToState (MkEdgeRHS Arrow (Left rhsID)) = ?edgeRHSToState_rhs_0 -- TODO
 
-dotStmtToState stmt@(EdgeStmt (Left lhsID) ((MkEdgeRHS Arrow (Left rhsID)) ::: []) [(attr :: _)]) =
-  do attrRHS <- getAssignLabelString attr
-     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
-     lhsState <- nodeIDToState lhsID
-     rhsState <- nodeIDToState rhsID
-     if lhsState == rhsState
-        then pure $ singleton lhsState
-        else pure $ lhsState ::: [rhsState]
+--  do attrRHS <- getAssignLabelString attr
+--     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
+--     lhsState <- nodeIDToState lhsID
+--     rhsState <- nodeIDToState rhsID
+--      if lhsState == rhsState
+--         then pure $ (lhsState, MkUnit)
+--         else pure $ (lhsState, rhsState)
 
-dotStmtToState stmt = Left $ StmtStateError stmt
+edgeRHSToState erhs = ?edgeRHSToState_rhs_1 -- TODO Left $ StmtStateError stmt
 
 ||| Convert the DOT `Stmt`s to states in a DSA, accumulating the states in the
-||| given accumulator iff the state to add is unique.
+||| given accumulator iff the state to add is unique. Only `NodeStmt`s and
+||| `EdgeStmt`s can be converted to states. If another kind of statement is
+||| present, an error will occur.
+|||
+||| An `EdgeStmt` is a state iff it is an `EdgeStmt` not involving a subgraph,
+||| TODO...
 covering
 dotStmtsToAccStates :  List Stmt
                     -> (acc : List (Subset Value IsDataVal))
                     -> Either ToDSAError (List (Subset Value IsDataVal))
 dotStmtsToAccStates [] acc = pure acc
-dotStmtsToAccStates (stmt :: stmts) acc =
-  do states <- dotStmtToState stmt
-     ?helpMeeeeee     -- TODO: figure this out
+dotStmtsToAccStates (stmt@(NodeStmt nid [[]]) :: stmts) acc =
+  do state <- nodeStmtToState stmt
+     ?dotStmsToAccStates_rhs_1
+dotStmtsToAccStates ((EdgeStmt (Left lhsID) (eRHS ::: []) [(attr :: _)]) :: stmts) acc =
+  do attrRHS <- getAssignLabelString attr
+     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
+     state1 <- nodeIDToState lhsID
+     state2 <- edgeRHSToState eRHS
+     ?helpMeeeeee_1     -- TODO: figure this out
      -- if elem state acc
      --    then dotStmtsToAccStates stmts acc
      --    else dotStmtsToAccStates stmts (state :: acc)
+
+dotStmtsToAccStates (stmt :: _) acc = Left $ StmtStateError stmt
 
 ||| Convert the DOT `Stmt`s to states in a DSA.
 covering
