@@ -115,6 +115,9 @@ data ToDSAError : Type where
                       -> (rem : List (WithBounds LabelTok))
                       -> ToDSAError
 
+  ||| The given NodeID cannot be converted to a DSA state
+  NodeIDStateError : (nid : NodeID) -> ToDSAError
+
   ||| The given Stmt cannot be converted to a DSA state.
   StmtStateError : (stmt : Stmt) -> ToDSAError
 
@@ -246,6 +249,19 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 -- States --
 ------------
 
+||| Convert a DOT `NodeID` to a DSA state.
+|||
+||| A `NodeID` is a state iff it contains:
+|||   - A `NameID`, whose value is a valid Idris data constructor;
+|||   OR
+|||   - A `StringID`, whose value is a valid Idris data constructor.
+nodeIDToState : NodeID -> Either ToDSAError (Subset Value IsDataVal)
+nodeIDToState (MkNodeID (NameID name) _) =
+  stringToIdrisDataVal name
+nodeIDToState (MkNodeID (StringID id_) _) =
+  stringToIdrisDataVal $ cleanStringIDString id_
+nodeIDToState nid = Left $ NodeIDStateError nid
+
 ||| Convert a DOT `Stmt` to a DSA state.
 |||
 ||| A `Stmt` is a state iff it is:
@@ -254,10 +270,7 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 |||   OR
 |||   - an `EdgeStmt` not involving a subgraph, TODO...
 dotStmtToState : Stmt -> Either ToDSAError (Subset Value IsDataVal)
-dotStmtToState (NodeStmt (MkNodeID (NameID name) _) [[]]) =
-  stringToIdrisDataVal name
-dotStmtToState (NodeStmt (MkNodeID (StringID id_) _) [[]]) =
-  stringToIdrisDataVal $ cleanStringIDString id_
+dotStmtToState (NodeStmt nid [[]]) = nodeIDToState nid
 
 dotStmtToState stmt@(EdgeStmt (Left lhsID) ((MkEdgeRHS Arrow (Left rhsID)) ::: []) [(attr :: _)]) =
   do attrRHS <- getAssignLabelString attr
