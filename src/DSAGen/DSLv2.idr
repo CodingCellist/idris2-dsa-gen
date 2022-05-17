@@ -269,13 +269,20 @@ nodeIDToState nid = Left $ NodeIDStateError nid
 |||     `StringID`, whose value is a valid Idris data constructor;
 |||   OR
 |||   - an `EdgeStmt` not involving a subgraph, TODO...
-dotStmtToState : Stmt -> Either ToDSAError (Subset Value IsDataVal)
-dotStmtToState (NodeStmt nid [[]]) = nodeIDToState nid
+covering
+dotStmtToState : Stmt -> Either ToDSAError (List1 $ Subset Value IsDataVal)
+dotStmtToState (NodeStmt nid [[]]) =
+  do state <-nodeIDToState nid
+     pure $ singleton state
 
 dotStmtToState stmt@(EdgeStmt (Left lhsID) ((MkEdgeRHS Arrow (Left rhsID)) ::: []) [(attr :: _)]) =
   do attrRHS <- getAssignLabelString attr
      _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
-     ?dotStmtToState_rhs_8    -- TODO
+     lhsState <- nodeIDToState lhsID
+     rhsState <- nodeIDToState rhsID
+     if lhsState == rhsState
+        then pure $ singleton lhsState
+        else pure $ lhsState ::: [rhsState]
 
 dotStmtToState stmt = Left $ StmtStateError stmt
 
@@ -287,10 +294,11 @@ dotStmtsToAccStates :  List Stmt
                     -> Either ToDSAError (List (Subset Value IsDataVal))
 dotStmtsToAccStates [] acc = pure acc
 dotStmtsToAccStates (stmt :: stmts) acc =
-  do state <- dotStmtToState stmt
-     if elem state acc
-        then dotStmtsToAccStates stmts acc
-        else dotStmtsToAccStates stmts (state :: acc)
+  do states <- dotStmtToState stmt
+     ?helpMeeeeee     -- TODO: figure this out
+     -- if elem state acc
+     --    then dotStmtsToAccStates stmts acc
+     --    else dotStmtsToAccStates stmts (state :: acc)
 
 ||| Convert the DOT `Stmt`s to states in a DSA.
 covering
