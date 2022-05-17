@@ -167,6 +167,14 @@ stringToIdrisDataVal s =
           dv@(DataVal dc args) => pure (Element dv ItIsDataVal)
           _ => Left $ StringDataValError s
 
+||| Extracts the right hand side (rhs) of the assignment, if the given `Assign`
+||| is an assignment from the word "label" (either as a `StringID` or a
+||| `NameID`) to a `StringID` rhs. Helper-function for `dotStmtToState`.
+getAssignLabelString : Assign -> Either ToDSAError String
+getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) = pure rhs
+getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) = pure rhs
+getAssignLabelString attr = Left $ AssignLabelError attr
+
 ||| Convert the given string to a valid DSA label, if it is one.
 stringToDSALabel : String -> Either ToDSAError DSALabel
 stringToDSALabel s =
@@ -238,14 +246,6 @@ dotidToDSAName dotid = Left $ DSANameError dotid
 -- States --
 ------------
 
-||| Extracts the right hand side (rhs) of the assignment, if the given `Assign`
-||| is an assignment from the word "label" (either as a `StringID` or a
-||| `NameID`) to a `StringID` rhs. Helper-function for `dotStmtToState`.
-getAssignLabelString : Assign -> Either ToDSAError String
-getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) = pure rhs
-getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) = pure rhs
-getAssignLabelString attr = Left $ AssignLabelError attr
-
 ||| Convert a DOT `Stmt` to a DSA state.
 |||
 ||| A `Stmt` is a state iff it is:
@@ -261,6 +261,7 @@ dotStmtToState (NodeStmt (MkNodeID (StringID id_) _) [[]]) =
 
 dotStmtToState stmt@(EdgeStmt (Left lhsID) ((MkEdgeRHS Arrow (Left rhsID)) ::: []) [(attr :: _)]) =
   do attrRHS <- getAssignLabelString attr
+     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
      ?dotStmtToState_rhs_8    -- TODO
 
 dotStmtToState stmt = Left $ StmtStateError stmt
