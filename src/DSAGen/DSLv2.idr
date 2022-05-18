@@ -67,17 +67,17 @@ Uninhabited (IsPlainCmd (TDPCmd _ _  _ _)) where
 public export
 data DSAv2 : Type where
   MkDSAv2 :  (dsaName : String)
-          -> (states : List Value)
-          -> {auto 0 statesOK : All IsDataVal states}
-          -> (regEdges : List DSALabel)
-          -> {auto 0 regsOK : All IsPlainCmd regEdges}
-          -> (advEdges : List DSALabel)
-          -> {auto 0 advsOK : All (Not . IsPlainCmd) advEdges}
+          -> (states : Subset (List Value) (All IsDataVal))
+          -> {labels : List DSALabel}
+          -> (edges : Split IsPlainCmd labels)
           -> DSAv2
 
 test : DSAv2
 test =
-  MkDSAv2 "Test" [(DataVal "S1" Nothing), (DataVal "S2" Nothing)] [] []
+  let dsaName : String = "Test"
+      listStates : List (Subset Value IsDataVal) = [ Element (DataVal "S1" Nothing) ItIsDataVal
+                                                   , Element (DataVal "S2" Nothing) ItIsDataVal]
+  in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
 
 
 --------------------------------------------------------------------------------
@@ -332,6 +332,15 @@ dotStmtsToStates stmts = do states <- dotStmtsToAccStates stmts []
                             pure $ pullOut states
 
 -----------
+-- Edges --
+-----------
+
+dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSALabel)
+dotStmtsToLabels stmts = ?dotStmtsToLabels_rhs    -- TODO: !!! RESUME HERE !!!
+
+labelsToEdges : (labels : List DSALabel) -> Split IsPlainCmd labels
+
+-----------
 -- toDSA --
 -----------
 
@@ -343,6 +352,9 @@ toDSAv2 : Graph -> Either ToDSAError DSAv2
 toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
   do dsaName <- dotidToDSAName id_
      states <- dotStmtsToStates stmtList
-     ?toDSAv2_rhs_7    -- TODO: !!! RESUME HERE !!!
+     labels <- dotStmtsToLabels stmtList
+     let edges = labelsToEdges labels
+     let dsa = MkDSAv2 dsaName states edges
+     pure dsa
 toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
 
