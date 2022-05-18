@@ -220,6 +220,16 @@ stringToComplexCmd s =
           (DPCmd _ _ _) => pure (Element cmd uninhabited)
           (TDPCmd _ _ _ _) => pure (Element cmd uninhabited)
 
+||| Accumulate the new state in the accumulator iff the state is not already an
+||| element of the accumulator.
+covering
+accState :  (newState : Subset Value IsDataVal)
+         -> (acc : List (Subset Value IsDataVal))
+         -> List (Subset Value IsDataVal)
+accState newState acc = if elem newState acc
+                           then acc
+                           else (newState :: acc)
+
 --------------
 -- DSA Name --
 --------------
@@ -289,8 +299,9 @@ edgeRHSToState erhs = Left $ EdgeRHSStateError erhs
 ||| `EdgeStmt`s can be converted to states. If another kind of statement is
 ||| present, an error will occur.
 |||
-||| An `EdgeStmt` is a state iff it is an `EdgeStmt` not involving a subgraph,
-||| TODO...
+||| An `EdgeStmt` is a state iff it is an `EdgeStmt` not involving a subgraph
+||| (in either the LHS or the RHS), having only a single RHS and a single list
+||| of assignments of which the first must be a 'label' assignment.
 covering
 dotStmtsToAccStates :  List Stmt
                     -> (acc : List (Subset Value IsDataVal))
@@ -298,18 +309,18 @@ dotStmtsToAccStates :  List Stmt
 dotStmtsToAccStates [] acc = pure acc
 dotStmtsToAccStates (stmt@(NodeStmt nid [[]]) :: stmts) acc =
   do state <- nodeStmtToState stmt
-     if elem state acc
-        then dotStmtsToAccStates stmts acc
-        else dotStmtsToAccStates stmts (state :: acc)
+     dotStmtsToAccStates stmts (accState state acc)
+
 dotStmtsToAccStates ((EdgeStmt (Left lhsID) (eRHS ::: []) [(attr :: _)]) :: stmts) acc =
   do attrRHS <- getAssignLabelString attr
      _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
-     state1 <- nodeIDToState lhsID
-     state2 <- edgeRHSToState eRHS
-     ?helpMeeeeee_1     -- TODO: figure this out
-     -- if elem state acc
-     --    then dotStmtsToAccStates stmts acc
-     --    else dotStmtsToAccStates stmts (state :: acc)
+     lhsState <- nodeIDToState lhsID
+     rhsState <- edgeRHSToState eRHS
+     if lhsState == rhsState
+        --   if the states are the same, we only need to accumulate one copy
+        then dotStmtsToAccStates stmts (accState lhsState acc)
+        --   otherwise, we need to accumulate both states
+        else dotStmtsToAccStates stmts (accState rhsState (accState lhsState acc))
 
 dotStmtsToAccStates (stmt :: _) acc = Left $ StmtStateError stmt
 
