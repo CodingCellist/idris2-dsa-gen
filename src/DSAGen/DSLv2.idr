@@ -138,6 +138,9 @@ data ToDSAError : Type where
   ||| The given String cannot be converted to a non-plain DSA command.
   StringComplexCommandError : (str : String) -> ToDSAError
 
+  ||| The given EdgeRHS cannot be converted to a DSA state
+  EdgeRHSStateError : (erhs : EdgeRHS) -> ToDSAError
+
   -- TODO: the other errors
 
 -----------
@@ -273,21 +276,13 @@ nodeStmtToState stmt = Left $ StmtStateError stmt
 
 ||| Convert a DOT `EdgeRHS` to a DSA state.
 |||
-||| An `EdgeStmt` is a state iff it is an `EdgeStmt` not involving a subgraph,
-||| TODO...
+||| An `EdgeRHS` is a state iff it is an edge in a digraph (i.e. contains an
+||| `Arrow`) pointing to a `DOTID` whose value is a valid Idris data
+||| constructor.
 covering
 edgeRHSToState : EdgeRHS -> Either ToDSAError (Subset Value IsDataVal)
-edgeRHSToState (MkEdgeRHS Arrow (Left rhsID)) = ?edgeRHSToState_rhs_0 -- TODO
-
---  do attrRHS <- getAssignLabelString attr
---     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
---     lhsState <- nodeIDToState lhsID
---     rhsState <- nodeIDToState rhsID
---      if lhsState == rhsState
---         then pure $ (lhsState, MkUnit)
---         else pure $ (lhsState, rhsState)
-
-edgeRHSToState erhs = ?edgeRHSToState_rhs_1 -- TODO Left $ StmtStateError stmt
+edgeRHSToState (MkEdgeRHS Arrow (Left rhsID)) = nodeIDToState rhsID
+edgeRHSToState erhs = Left $ EdgeRHSStateError erhs
 
 ||| Convert the DOT `Stmt`s to states in a DSA, accumulating the states in the
 ||| given accumulator iff the state to add is unique. Only `NodeStmt`s and
@@ -303,7 +298,9 @@ dotStmtsToAccStates :  List Stmt
 dotStmtsToAccStates [] acc = pure acc
 dotStmtsToAccStates (stmt@(NodeStmt nid [[]]) :: stmts) acc =
   do state <- nodeStmtToState stmt
-     ?dotStmsToAccStates_rhs_1
+     if elem state acc
+        then dotStmtsToAccStates stmts acc
+        else dotStmtsToAccStates stmts (state :: acc)
 dotStmtsToAccStates ((EdgeStmt (Left lhsID) (eRHS ::: []) [(attr :: _)]) :: stmts) acc =
   do attrRHS <- getAssignLabelString attr
      _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
