@@ -74,9 +74,11 @@ data DSAv2 : Type where
 
 test : DSAv2
 test =
-  let dsaName : String = "Test"
-      listStates : List (Subset Value IsDataVal) = [ Element (DataVal "S1" Nothing) ItIsDataVal
-                                                   , Element (DataVal "S2" Nothing) ItIsDataVal]
+  let dsaName : String
+              = "Test"
+      listStates : List (Subset Value IsDataVal)
+                 = [ Element (DataVal "S1" Nothing) ItIsDataVal
+                   , Element (DataVal "S2" Nothing) ItIsDataVal]
   in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
 
 
@@ -140,6 +142,9 @@ data ToDSAError : Type where
 
   ||| The given EdgeRHS cannot be converted to a DSA state
   EdgeRHSStateError : (erhs : EdgeRHS) -> ToDSAError
+
+  ||| The given Stmt cannot be converted to a DSA command
+  StmtCmdError : (stmt : Stmt) -> ToDSAError
 
   -- TODO: the other errors
 
@@ -312,8 +317,7 @@ dotStmtsToAccStates (stmt@(NodeStmt nid [[]]) :: stmts) acc =
      dotStmtsToAccStates stmts (accState state acc)
 
 dotStmtsToAccStates ((EdgeStmt (Left lhsID) (eRHS ::: []) [(attr :: _)]) :: stmts) acc =
-  do attrRHS <- getAssignLabelString attr
-     _ <- stringToDSALabel attrRHS    -- check that the RHS is well-formed
+  do _ <- getAssignLabelString attr   -- check that the RHS is well-formed
      lhsState <- nodeIDToState lhsID
      rhsState <- edgeRHSToState eRHS
      if lhsState == rhsState
@@ -335,9 +339,35 @@ dotStmtsToStates stmts = do states <- dotStmtsToAccStates stmts []
 -- Edges --
 -----------
 
-dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSALabel)
-dotStmtsToLabels stmts = ?dotStmtsToLabels_rhs    -- TODO: !!! RESUME HERE !!!
+||| Convert the given DOT `Stmt` to a command label in a DSA.
+|||
+||| A `Stmt`'s label is a command iff it:
+|||   - does not involve a subgraph (on either the LHS or the RHS)
+|||   - contains only a single list of attribute assignments, of which the first
+|||     must assign 'label' to some valid commands, separated by ';' if there
+|||     are multiple.
+dotStmtToLabel : (stmt : Stmt) -> Either ToDSAError (List DSALabel)
+dotStmtToLabel (EdgeStmt (Left lhsID) rhs [(fstAssign :: _)]) =
+  do rawLabel <- getAssignLabelString fstAssign
+     let rawCmds = trim <$> split (== ';') rawLabel
+     ?dotStmtToLabel_rhs_1      -- TODO
 
+dotStmtToLabel stmt = Left $ StmtCmdError stmt
+
+||| Convert the given DOT `Stmt`s to command labels in a DSA.
+|||
+||| See also: `dotStmtToLabel`
+dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSALabel)
+dotStmtsToLabels [] = pure []
+dotStmtsToLabels stmts =
+  do multiCmds <- traverse dotStmtToLabel stmts
+     ?dotStmtsToLabels_rhs_1    -- TODO: !!! RESUME HERE !!!
+
+||| Split the given `DSALabel`s into those containing plain DSA commands (i.e.
+||| commands taking, producing, and depending on no arguments) and those
+||| containing advanced commands.
+|||
+||| See also: `IsPlainCmd`
 labelsToEdges : (labels : List DSALabel) -> Split IsPlainCmd labels
 
 -----------
