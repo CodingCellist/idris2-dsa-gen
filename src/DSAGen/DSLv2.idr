@@ -129,7 +129,7 @@ data ToDSAError : Type where
                       -> (rem : List (WithBounds LabelTok))
                       -> ToDSAError
 
-  ||| The given NodeID cannot be converted to a DSA state
+  ||| The given NodeID cannot be converted to a DSA state.
   NodeIDStateError : (nid : NodeID) -> ToDSAError
 
   ||| The given Stmt cannot be converted to a DSA state.
@@ -146,19 +146,62 @@ data ToDSAError : Type where
                      -> (parseErrors : List1 (ParsingError LabelTok))
                      -> ToDSAError
 
-  ||| The given String cannot be converted to a plain DSA command.
-  StringPlainCommandError : (str : String) -> ToDSAError
-
-  ||| The given String cannot be converted to a non-plain DSA command.
-  StringComplexCommandError : (str : String) -> ToDSAError
-
-  ||| The given EdgeRHS cannot be converted to a DSA state
+  ||| The given EdgeRHS cannot be converted to a DSA state.
   EdgeRHSStateError : (erhs : EdgeRHS) -> ToDSAError
 
-  ||| The given Stmt cannot be converted to a DSA command
+  ||| The given Stmt cannot be converted to a DSA command.
   StmtCmdError : (stmt : Stmt) -> ToDSAError
 
-  -- TODO: the other errors
+export
+covering
+Show ToDSAError where
+  show (GraphStructureError g) =
+    "The given Graph cannot be converted to a DSA:\n\t" ++ show g
+
+  show (DSANameError id_) =
+    "The given DOTID was not a valid DSA name:\n\t" ++ show id_
+
+  show (IdrisNameError id_) =
+    "The given DOTID was not a valid Idris name:\n\t" ++ show id_
+
+  show (UnknownLexemeError toLex rem) = ?show_rhs_3
+    "It was not possible to lex the given String completely.\n\t"
+    ++ "Given: " ++ toLex ++ "\n\t"
+    ++ "Remainder: " ++ show rem
+
+  show (ValueParseError concerning parseErrors) =
+    "There was an error when parsing the String as a Value.\n\t"
+    ++ "Given: " ++ concerning ++ "\n\t"
+    ++ "Errors: " ++ show parseErrors
+
+  show (ParseRemainderError concerning rem) =
+    "It was not possible to parse the given String completely.\n\t"
+    ++ "Given: " ++ concerning ++ "\n\t"
+    ++ "Remainder: " ++ show rem
+
+  show (NodeIDStateError nid) =
+    "The given NodeID cannot be converted to a DSA state:\n\t" ++ show nid
+
+  show (StmtStateError stmt) =
+    "The given Stmt cannot be converted to a DSA state:\n\t" ++ show stmt
+
+  show (StringDataValError str) =
+    "The given String cannot be converted to an Idris data constructor value:\n\t"
+    ++ str
+
+  show (AssignLabelError attr) =
+   "The given assignment was not an assignment from 'label':\n\t" ++ show attr
+
+  show (DSALabelParseError concerning parseErrors) =
+    "There was an error when parsing the String as a DSALabel.\n\t"
+    ++ "Given: " ++ concerning ++ "\n\t"
+    ++ "Errors: " ++ show parseErrors
+
+  show (EdgeRHSStateError erhs) =
+    "The given EdgeRHS cannot be converted to a DSA state:\n\t" ++ show erhs
+
+  show (StmtCmdError stmt) =
+    "The given Stmt cannot be converted to a DSA command:\n\t" ++ show stmt
 
 -----------
 -- Utils --
