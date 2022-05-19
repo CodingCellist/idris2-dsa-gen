@@ -54,6 +54,18 @@ Uninhabited (IsPlainCmd (DPCmd _ _ _)) where
 Uninhabited (IsPlainCmd (TDPCmd _ _  _ _)) where
   uninhabited ItIsPlain impossible
 
+||| Prove that the given command is a plain command, or provide the
+||| counter-proof for why it cannot be.
+isItPlainCmd : (cmd : DSALabel) -> Dec (IsPlainCmd cmd)
+isItPlainCmd (PlainCmd _)     = Yes ItIsPlain
+isItPlainCmd (TakeCmd _ _)    = No absurd
+isItPlainCmd (DepCmd _ _)     = No absurd
+isItPlainCmd (ProdCmd _ _)    = No absurd
+isItPlainCmd (TDCmd _ _ _)    = No absurd
+isItPlainCmd (TPCmd _ _ _)    = No absurd
+isItPlainCmd (DPCmd _ _ _)    = No absurd
+isItPlainCmd (TDPCmd _ _ _ _) = No absurd
+
 ------------------------------
 -- Dependent State Automata --
 ------------------------------
@@ -196,34 +208,6 @@ stringToDSALabel s =
      case parsed of
           (dsaLabel, []) => pure dsaLabel
           (dsaLabel, rem@(_ :: _)) => Left $ ParseRemainderError s rem
-
-||| Convert the given string to a valid, plain DSA command, if it is one.
-|||
-||| See also: `IsPlainCmd`.
-stringToPlainCmd : String -> Either ToDSAError (Subset DSALabel IsPlainCmd)
-stringToPlainCmd s =
-  do cmd <- stringToDSALabel s
-     case cmd of
-          (PlainCmd _) => pure (Element cmd ItIsPlain)
-          _ => Left $ StringPlainCommandError s
-
-||| Convert the given string to a valid, non-plain DSA command, if it is one.
-|||
-||| See also: `IsPlainCmd`
-stringToComplexCmd :  String
-                   -> Either ToDSAError (Subset DSALabel (Not . IsPlainCmd))
-stringToComplexCmd s =
-  do cmd <- stringToDSALabel s
-     case cmd of
-          (PlainCmd _) => Left $ StringComplexCommandError s
-          -- need each case separately for proof reasons
-          (TakeCmd _ _) => pure (Element cmd uninhabited)
-          (DepCmd _ _) => pure (Element cmd uninhabited)
-          (ProdCmd _ _) => pure (Element cmd uninhabited)
-          (TDCmd _ _ _) => pure (Element cmd uninhabited)
-          (TPCmd _ _ _) => pure (Element cmd uninhabited)
-          (DPCmd _ _ _) => pure (Element cmd uninhabited)
-          (TDPCmd _ _ _ _) => pure (Element cmd uninhabited)
 
 ||| Accumulate the new state in the accumulator iff the state is not already an
 ||| element of the accumulator.
@@ -368,8 +352,9 @@ dotStmtsToLabels stmts =
 ||| commands taking, producing, and depending on no arguments) and those
 ||| containing advanced commands.
 |||
-||| See also: `IsPlainCmd`
-labelsToEdges : (labels : List DSALabel) -> Split IsPlainCmd labels
+||| See also: `IsPlainCmd`, `List.Quantifiers.Split`
+labelsToEdges : (labels : List DSALabel) -> Split IsPlainCmd (reverse labels)
+labelsToEdges = split isItPlainCmd
 
 -----------
 -- toDSA --
@@ -387,5 +372,6 @@ toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
      let edges = labelsToEdges labels
      let dsa = MkDSAv2 dsaName states edges
      pure dsa
-toDSAv2 (MkGraph _ _ _ stmtList) = ?toDSAv2_rhs_2
+
+toDSAv2 graph = Left $ GraphStructureError graph
 
