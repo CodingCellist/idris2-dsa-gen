@@ -153,10 +153,13 @@ Show DSAv2 where
   show (MkDSAv2 dsaName states edges) =
     "--- BEGIN DSA DEFINITION ---\n\t"
     ++ "Name: " ++ dsaName ++ "\n\t"
-    ++ "States:\n\t\t" ++ show states.fst ++ "\n\t"
-    ++ "Plain edges:\n\t\t" ++ show (edges.ayes) ++ "\n\t"
-    ++ "Advanced edges:\n\t\t" ++ show (edges.naws) ++ "\n"
+    ++ "States:\n\t\t" ++ vertListShow (states.fst) ++ "\n\t"
+    ++ "Plain edges:\n\t\t" ++ vertListShow (edges.ayes) ++ "\n\t"
+    ++ "Advanced edges:\n\t\t" ++ vertListShow (edges.naws) ++ "\n"
     ++ "--- END DSA DEFINITION ---"
+    where
+      vertListShow : Show a => List a -> String
+      vertListShow xs = "[ " ++ joinBy "\n\t\t, " (map show xs) ++ "\n\t\t]"
 
 export
 covering
