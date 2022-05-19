@@ -166,6 +166,37 @@ Eq DSALabel where
   (==) _ _ = False
 
 
+----------
+-- Show --
+----------
+
+export
+covering
+Show TakeArg where
+  show (Takes arg) = "(Takes " ++ show arg ++ ")"
+
+export
+covering
+Show DepArg where
+  show (DepsOn val) = "(DepsOn " ++ show val ++ ")"
+
+export
+covering
+Show ProdArg where
+  show (Produce val) = "(Produce " ++ show val ++ ")"
+
+export
+covering
+Show DSALabel where
+  show (PlainCmd cmd) = "(PlainCmd '\{cmd}')"
+  show (TakeCmd cmd arg) = "(TakeCmd '\{cmd}' \{show arg})"
+  show (DepCmd cmd dep) = "(DepCmd '\{cmd}' \{show dep})"
+  show (ProdCmd cmd res) = "(ProdCmd '\{cmd}' \{show res})"
+  show (TDCmd cmd arg dep) = "(TDCmd '\{cmd}' \{show arg} \{show dep})"
+  show (TPCmd cmd arg res) = "(TPCmd '\{cmd}' \{show arg} \{show res})"
+  show (DPCmd cmd dep res) = "(DPCmd '\{cmd}' \{show dep} \{show res})"
+  show (TDPCmd cmd arg dep res) = "(TDPCmd '\{cmd}' \{show arg} \{show dep} \{show res})"
+
 
 --------------------------------------------------------------------------------
 -- GRAMMAR
