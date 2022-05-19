@@ -179,7 +179,7 @@ Show ToDSAError where
   show (IdrisNameError id_) =
     "The given DOTID was not a valid Idris name:\n\t" ++ show id_
 
-  show (UnknownLexemeError toLex rem) = ?show_rhs_3
+  show (UnknownLexemeError toLex rem) =
     "It was not possible to lex the given String completely.\n\t"
     ++ "Given: " ++ toLex ++ "\n\t"
     ++ "Remainder: " ++ show rem
