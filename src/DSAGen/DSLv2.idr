@@ -93,11 +93,6 @@ test =
                    , Element (DataVal "S2" Nothing) ItIsDataVal]
   in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
 
-
---------------------------------------------------------------------------------
--- READING DOT --
---------------------------------------------------------------------------------
-
 ------------
 -- Errors --
 ------------
@@ -152,6 +147,26 @@ data ToDSAError : Type where
   ||| The given Stmt cannot be converted to a DSA command.
   StmtCmdError : (stmt : Stmt) -> ToDSAError
 
+
+--------------------------------------------------------------------------------
+-- INTERFACES
+--------------------------------------------------------------------------------
+
+----------
+-- Show --
+----------
+
+export
+covering
+Show DSAv2 where
+  show (MkDSAv2 dsaName states edges) =
+    "--- BEGIN DSA DEFINITION ---\n\t"
+    ++ "Name: " ++ dsaName ++ "\n\t"
+    ++ "States:\n\t\t" ++ show states.fst ++ "\n\t"
+    ++ "Plain edges:\n\t\t" ++ show (edges.ayes) ++ "\n\t"
+    ++ "Advanced edges:\n\t\t" ++ show (edges.naws) ++ "\n"
+    ++ "--- END DSA DEFINITION ---"
+
 export
 covering
 Show ToDSAError where
@@ -202,6 +217,11 @@ Show ToDSAError where
 
   show (StmtCmdError stmt) =
     "The given Stmt cannot be converted to a DSA command:\n\t" ++ show stmt
+
+
+--------------------------------------------------------------------------------
+-- CONVERTING DOT TO DSAS --
+--------------------------------------------------------------------------------
 
 -----------
 -- Utils --
@@ -417,4 +437,20 @@ toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
      pure dsa
 
 toDSAv2 graph = Left $ GraphStructureError graph
+
+
+dotFile : String
+dotFile =
+  "/home/thomas/Documents/01-PhD/idris2-projects/dot-parse/dot-examples/05-ATM-DSAv2.gv"
+
+export
+covering
+testToDSA : IO ()
+testToDSA =
+  do Right dot <- readDOTFile dotFile
+      | Left err => putStrLn $ "DOT READ ERROR: " ++ show err
+     let Right dsa = toDSAv2 dot
+          | Left err => putStrLn $ "TODSA ERROR: " ++ show err
+     putStrLn "\nSUCCESS!!!\n"
+     printLn dsa
 
