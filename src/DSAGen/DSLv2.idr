@@ -255,10 +255,13 @@ stringToIdrisDataVal s =
 
 ||| Extracts the right hand side (rhs) of the assignment, if the given `Assign`
 ||| is an assignment from the word "label" (either as a `StringID` or a
-||| `NameID`) to a `StringID` rhs. Helper-function for `dotStmtToState`.
+||| `NameID`) to a `StringID` rhs. Also cleans the rhs (i.e. removes the
+||| surrounding '"') before returning it. Helper-function for `dotStmtToState`.
 getAssignLabelString : Assign -> Either ToDSAError String
-getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) = pure rhs
-getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) = pure rhs
+getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) =
+  pure $ cleanStringIDString rhs
+getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) =
+  pure $ cleanStringIDString rhs
 getAssignLabelString attr = Left $ AssignLabelError attr
 
 ||| Convert the given string to a valid DSA label, if it is one.
