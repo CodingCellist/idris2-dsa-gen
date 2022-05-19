@@ -344,13 +344,14 @@ dotStmtsToStates stmts = do states <- dotStmtsToAccStates stmts []
 ||| A `Stmt`'s label is a command iff it:
 |||   - does not involve a subgraph (on either the LHS or the RHS)
 |||   - contains only a single list of attribute assignments, of which the first
-|||     must assign 'label' to some valid commands, separated by ';' if there
-|||     are multiple.
+|||     must assign 'label' to some valid command(s) (separated by ';' if there
+|||     are multiple).
 dotStmtToLabel : (stmt : Stmt) -> Either ToDSAError (List DSALabel)
 dotStmtToLabel (EdgeStmt (Left lhsID) rhs [(fstAssign :: _)]) =
   do rawLabel <- getAssignLabelString fstAssign
      let rawCmds = trim <$> split (== ';') rawLabel
-     ?dotStmtToLabel_rhs_1      -- TODO
+     cmds <- traverse stringToDSALabel rawCmds
+     pure $ toList cmds
 
 dotStmtToLabel stmt = Left $ StmtCmdError stmt
 
@@ -361,7 +362,7 @@ dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSALabel)
 dotStmtsToLabels [] = pure []
 dotStmtsToLabels stmts =
   do multiCmds <- traverse dotStmtToLabel stmts
-     ?dotStmtsToLabels_rhs_1    -- TODO: !!! RESUME HERE !!!
+     pure $ foldl (++) [] multiCmds
 
 ||| Split the given `DSALabel`s into those containing plain DSA commands (i.e.
 ||| commands taking, producing, and depending on no arguments) and those
