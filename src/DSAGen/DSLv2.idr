@@ -84,15 +84,6 @@ data DSAv2 : Type where
           -> (edges : Split IsPlainCmd labels)
           -> DSAv2
 
-test : DSAv2
-test =
-  let dsaName : String
-              = "Test"
-      listStates : List (Subset Value IsDataVal)
-                 = [ Element (DataVal "S1" Nothing) ItIsDataVal
-                   , Element (DataVal "S2" Nothing) ItIsDataVal]
-  in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
-
 ------------
 -- Errors --
 ------------
@@ -442,14 +433,27 @@ toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
 toDSAv2 graph = Left $ GraphStructureError graph
 
 
+--------------------------------------------------------------------------------
+-- TESTS
+--------------------------------------------------------------------------------
+
+testDSAv2 : DSAv2
+testDSAv2 =
+  let dsaName : String
+              = "Test"
+      listStates : List (Subset Value IsDataVal)
+                 = [ Element (DataVal "S1" Nothing) ItIsDataVal
+                   , Element (DataVal "S2" Nothing) ItIsDataVal]
+  in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
+
 dotFile : String
 dotFile =
   "/home/thomas/Documents/01-PhD/idris2-projects/dot-parse/dot-examples/05-ATM-DSAv2.gv"
 
 export
 covering
-testToDSA : IO ()
-testToDSA =
+testToDSAv2 : IO ()
+testToDSAv2 =
   do Right dot <- readDOTFile dotFile
       | Left err => putStrLn $ "DOT READ ERROR: " ++ show err
      let Right dsa = toDSAv2 dot
