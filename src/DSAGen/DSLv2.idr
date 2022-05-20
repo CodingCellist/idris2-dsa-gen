@@ -79,7 +79,38 @@ data DSAEdge : Type where
 
 ||| A proof that an edge contains a plain command (i.e. carries no data).
 data IsPlainEdge : DSAEdge -> Type where
-  ItIsPlainEdge : IsPlainEdge (MkDSAEdge (PlainCmd _) _ _)
+  EdgeIsPlain : IsPlainEdge (MkDSAEdge (PlainCmd _) _ _)
+
+Uninhabited (IsPlainEdge (MkDSAEdge (TakeCmd _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (DepCmd _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (ProdCmd _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (TDCmd _ _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (TPCmd _ _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (DPCmd _ _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+Uninhabited (IsPlainEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
+  uninhabited EdgeIsPlain impossible
+
+isItPlainEdge : (edge : DSAEdge) -> Dec (IsPlainEdge edge)
+isItPlainEdge (MkDSAEdge (PlainCmd _) _ _)     = Yes EdgeIsPlain
+isItPlainEdge (MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
+isItPlainEdge (MkDSAEdge (DepCmd _ _) _ _)     = No absurd
+isItPlainEdge (MkDSAEdge (ProdCmd _ _) _ _)    = No absurd
+isItPlainEdge (MkDSAEdge (TDCmd _ _ _) _ _)    = No absurd
+isItPlainEdge (MkDSAEdge (TPCmd _ _ _) _ _)    = No absurd
+isItPlainEdge (MkDSAEdge (DPCmd _ _ _) _ _)    = No absurd
+isItPlainEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _) = No absurd
 
 ||| A Universal Edge is an edge which can be taken from any state in a DSA back
 ||| to a single state. Universal Edges are always plain.
@@ -102,8 +133,9 @@ public export
 data DSAv2 : Type where
   MkDSAv2 :  (dsaName : String)
           -> (states : Subset (List Value) (All IsDataVal))
-          -> {labels : List DSALabel}
-          -> (edges : Split IsPlainCmd labels)
+          -> {allEdges : List DSAEdge}
+          -> (edges : Split IsPlainEdge allEdges)
+          -> (universalEdges : List UniversalEdge)
           -> DSAv2
 
 ------------
@@ -171,13 +203,26 @@ data ToDSAError : Type where
 
 export
 covering
+Show DSAEdge where
+  show (MkDSAEdge cmd from to) =
+    "(DSAEdge \{show cmd} (\{show from}-->\{show to}))"
+
+export
+covering
+Show UniversalEdge where
+  show (MkUniversalEdge cmd to) =
+    "(UniversalEdge \{show cmd} (_-->\{show to}))"
+
+export
+covering
 Show DSAv2 where
-  show (MkDSAv2 dsaName states edges) =
+  show (MkDSAv2 dsaName states edges univEdges) =
     "--- BEGIN DSA DEFINITION ---\n\t"
     ++ "Name: " ++ dsaName ++ "\n\t"
     ++ "States:\n\t\t" ++ vertListShow (states.fst) ++ "\n\t"
     ++ "Plain edges:\n\t\t" ++ vertListShow (edges.ayes) ++ "\n\t"
     ++ "Advanced edges:\n\t\t" ++ vertListShow (edges.naws) ++ "\n"
+    ++ "Universal edges:\n\t\t" ++ vertListShow (univEdges) ++ "\n"
     ++ "--- END DSA DEFINITION ---"
     where
       vertListShow : Show a => List a -> String
@@ -409,34 +454,42 @@ dotStmtsToStates stmts = do states <- dotStmtsToAccStates stmts []
 |||
 ||| A `Stmt`'s label is a command iff it:
 |||   - does not involve a subgraph (on either the LHS or the RHS)
+|||   - only has a single EdgeRHS
 |||   - contains only a single list of attribute assignments, of which the first
 |||     must assign 'label' to some valid command(s) (separated by ';' if there
 |||     are multiple).
-dotStmtToLabel : (stmt : Stmt) -> Either ToDSAError (List DSALabel)
-dotStmtToLabel (EdgeStmt (Left lhsID) rhs [(fstAssign :: _)]) =
-  do rawLabel <- getAssignLabelString fstAssign
+dotStmtToLabel : (stmt : Stmt) -> Either ToDSAError (List DSAEdge)
+dotStmtToLabel (EdgeStmt (Left lhsID) (erhs ::: []) [(fstAssign :: _)]) =
+  do from <- nodeIDToState lhsID
+     to <- edgeRHSToState erhs
+     rawLabel <- getAssignLabelString fstAssign
      let rawCmds = trim <$> split (== ';') rawLabel
      cmds <- traverse stringToDSALabel rawCmds
-     pure $ toList cmds
+     let edges = map (\cmd => MkDSAEdge cmd from to) $ toList cmds
+     pure edges
 
 dotStmtToLabel stmt = Left $ StmtCmdError stmt
 
 ||| Convert the given DOT `Stmt`s to command labels in a DSA.
 |||
 ||| See also: `dotStmtToLabel`
-dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSALabel)
+dotStmtsToLabels : (stmts : List Stmt) -> Either ToDSAError (List DSAEdge)
 dotStmtsToLabels [] = pure []
 dotStmtsToLabels stmts =
   do multiCmds <- traverse dotStmtToLabel stmts
      pure $ foldl (++) [] multiCmds
 
-||| Split the given `DSALabel`s into those containing plain DSA commands (i.e.
+||| Split the given `DSAEdge`s into those containing plain DSA commands (i.e.
 ||| commands taking, producing, and depending on no arguments) and those
 ||| containing advanced commands.
 |||
-||| See also: `IsPlainCmd`, `List.Quantifiers.Split`
-labelsToEdges : (labels : List DSALabel) -> Split IsPlainCmd (reverse labels)
-labelsToEdges = split isItPlainCmd
+||| See also: `IsPlainEdge`, `List.Quantifiers.Split`
+splitPlainEdges : (edges : List DSAEdge) -> Split IsPlainEdge (reverse edges)
+splitPlainEdges = split isItPlainEdge
+
+||| Extract the Universal Edges to a separate list, removing them from the given
+||| list of all edges in the process.
+extractUniversalEdges : (allEdges : List DSAEdge) -> (List UniversalEdge, List DSAEdge)
 
 -----------
 -- toDSA --
@@ -450,9 +503,10 @@ toDSAv2 : Graph -> Either ToDSAError DSAv2
 toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
   do dsaName <- dotidToDSAName id_
      states <- dotStmtsToStates stmtList
-     labels <- dotStmtsToLabels stmtList
-     let edges = labelsToEdges labels
-     let dsa = MkDSAv2 dsaName states edges
+     allEdges <- dotStmtsToLabels stmtList
+     let (univEdges, dsaEdges) = extractUniversalEdges allEdges
+     let edges = splitPlainEdges dsaEdges
+     let dsa = MkDSAv2 dsaName states edges univEdges
      pure dsa
 
 toDSAv2 graph = Left $ GraphStructureError graph
@@ -469,7 +523,7 @@ testDSAv2 =
       listStates : List (Subset Value IsDataVal)
                  = [ Element (DataVal "S1" Nothing) ItIsDataVal
                    , Element (DataVal "S2" Nothing) ItIsDataVal]
-  in MkDSAv2 dsaName (pullOut listStates) {labels=[]} (MkSplit [] [])
+  in MkDSAv2 dsaName (pullOut listStates) {allEdges=[]} (MkSplit [] []) []
 
 dotFile : String
 dotFile =
