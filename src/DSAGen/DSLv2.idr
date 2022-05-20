@@ -66,6 +66,28 @@ isItPlainCmd (TPCmd _ _ _)    = No absurd
 isItPlainCmd (DPCmd _ _ _)    = No absurd
 isItPlainCmd (TDPCmd _ _ _ _) = No absurd
 
+---------------
+-- DSA Edges --
+---------------
+
+||| An edge in a Dependent State Automata, connecting two states by a command.
+data DSAEdge : Type where
+  MkDSAEdge :  (cmd  : DSALabel)
+            -> (from : Subset Value IsDataVal)
+            -> (to   : Subset Value IsDataVal)
+            -> DSAEdge
+
+||| A proof that an edge contains a plain command (i.e. carries no data).
+data IsPlainEdge : DSAEdge -> Type where
+  ItIsPlainEdge : IsPlainEdge (MkDSAEdge (PlainCmd _) _ _)
+
+||| A Universal Edge is an edge which can be taken from any state in a DSA back
+||| to a single state. Universal Edges are always plain.
+data UniversalEdge : Type where
+  MkUniversalEdge :  (cmd : Subset DSALabel IsPlainCmd)
+                  -> (to  : Subset Value IsDataVal)
+                  -> UniversalEdge
+
 ------------------------------
 -- Dependent State Automata --
 ------------------------------
