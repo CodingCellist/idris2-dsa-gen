@@ -71,6 +71,7 @@ isItPlainCmd (TDPCmd _ _ _ _) = No absurd
 ---------------
 
 ||| An edge in a Dependent State Automata, connecting two states by a command.
+public export
 data DSAEdge : Type where
   MkDSAEdge :  (cmd  : DSALabel)
             -> (from : Subset Value IsDataVal)
@@ -78,6 +79,7 @@ data DSAEdge : Type where
             -> DSAEdge
 
 ||| A proof that an edge contains a plain command (i.e. carries no data).
+public export
 data IsPlainEdge : DSAEdge -> Type where
   EdgeIsPlain : IsPlainEdge (MkDSAEdge (PlainCmd _) _ _)
 
@@ -102,6 +104,8 @@ Uninhabited (IsPlainEdge (MkDSAEdge (DPCmd _ _ _) _ _)) where
 Uninhabited (IsPlainEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
   uninhabited EdgeIsPlain impossible
 
+||| Prove that the given edge is a plain edge, or produce a counter-proof for
+||| why it cannot be a plain edge.
 isItPlainEdge : (edge : DSAEdge) -> Dec (IsPlainEdge edge)
 isItPlainEdge (MkDSAEdge (PlainCmd _) _ _)     = Yes EdgeIsPlain
 isItPlainEdge (MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
@@ -114,6 +118,7 @@ isItPlainEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _) = No absurd
 
 ||| A Universal Edge is an edge which can be taken from any state in a DSA back
 ||| to a single state. Universal Edges are always plain.
+public export
 data UniversalEdge : Type where
   MkUniversalEdge :  (cmd : Subset DSALabel IsPlainCmd)
                   -> (to  : Subset Value IsDataVal)
@@ -279,6 +284,16 @@ Show ToDSAError where
   show (StmtCmdError stmt) =
     "The given Stmt cannot be converted to a DSA command:\n\t" ++ show stmt
 
+--------
+-- Eq --
+--------
+
+export
+covering
+Eq DSAEdge where
+  (==) (MkDSAEdge cmd1 from1 to1) (MkDSAEdge cmd2 from2 to2) =
+    cmd1 == cmd2 && from1 == from2 && to1 == to2
+
 
 --------------------------------------------------------------------------------
 -- CONVERTING DOT TO DSAS --
@@ -295,6 +310,7 @@ cleanStringIDString : String -> String
 cleanStringIDString id_ = substr 1 ((length id_) `minus` 2) id_
 
 ||| Convert the given string to a valid Idris value, if it is one.
+export
 stringToIdrisValue : String -> Either ToDSAError Value
 stringToIdrisValue s =
   do let (toks, (_, _, "")) = lex s
@@ -307,6 +323,7 @@ stringToIdrisValue s =
 
 ||| Convert the given string to a valid Idris data constructor value, if it is
 ||| one.
+export
 stringToIdrisDataVal : String -> Either ToDSAError (Subset Value IsDataVal)
 stringToIdrisDataVal s =
   do val <- stringToIdrisValue s
@@ -318,6 +335,7 @@ stringToIdrisDataVal s =
 ||| is an assignment from the word "label" (either as a `StringID` or a
 ||| `NameID`) to a `StringID` rhs. Also cleans the rhs (i.e. removes the
 ||| surrounding '"') before returning it. Helper-function for `dotStmtToState`.
+export
 getAssignLabelString : Assign -> Either ToDSAError String
 getAssignLabelString (MkAssign (StringID "\"label\"") (StringID rhs)) =
   pure $ cleanStringIDString rhs
@@ -326,6 +344,7 @@ getAssignLabelString (MkAssign (NameID "label") (StringID rhs)) =
 getAssignLabelString attr = Left $ AssignLabelError attr
 
 ||| Convert the given string to a valid DSA label, if it is one.
+export
 stringToDSALabel : String -> Either ToDSAError DSALabel
 stringToDSALabel s =
   do let (toks, (_, _, "")) = lex s
@@ -345,6 +364,39 @@ accState :  (newState : Subset Value IsDataVal)
 accState newState acc = if elem newState acc
                            then acc
                            else (newState :: acc)
+
+||| Returns `True` iff the `DOTID` was a `NameID` or a `StringID` containing the
+||| value 'invis'.
+export
+isInvis : DOTID -> Bool
+isInvis (NameID "invis") = True
+isInvis (StringID "\"invis\"") = True
+isInvis _ = False
+
+||| Remove any assignment whose right-hand-side satisfies the given predicate.
+export
+filterAssignRHS : (by : DOTID -> Bool) -> List Assign -> List Assign
+filterAssignRHS by [] = []
+filterAssignRHS by (a@(MkAssign _ rhs) :: as) =
+  if isInvis rhs
+     then filterAssignRHS by as
+     else a :: filterAssignRHS by as
+
+||| Remove any assignment which assigns to the value "invis".
+export
+filterInvisAssign : List Assign -> List Assign
+filterInvisAssign = filterAssignRHS isInvis
+
+||| Returns `True` iff the given edge connects to the given state. Returns
+||| `False` otherwise.
+covering
+goesTo : (edge : DSAEdge) -> (state : Value) -> Bool
+goesTo (MkDSAEdge _ _ to) state = to.fst == state
+
+||| Does the given edge have different origin and destination (`from` and `to`)?
+covering
+diffFromTo : DSAEdge -> Bool
+diffFromTo (MkDSAEdge _ from to) = from /= to
 
 --------------
 -- DSA Name --
@@ -487,9 +539,69 @@ dotStmtsToLabels stmts =
 splitPlainEdges : (edges : List DSAEdge) -> Split IsPlainEdge (reverse edges)
 splitPlainEdges = split isItPlainEdge
 
+||| Universal Edge similarity is defined as:
+|||   - a plain edge
+|||   - whose command name is the same
+|||   - whose origin is different
+|||   - whose destination is the same
+covering
+isUniversalEdgeSimilar :  (cand : DSAEdge)
+                       -> {auto 0 candOK : IsPlainEdge cand}
+                       -> (other : DSAEdge)
+                       -> Bool
+isUniversalEdgeSimilar (MkDSAEdge (PlainCmd cmd1) from1 to1) other =
+  case other of
+       (MkDSAEdge (PlainCmd cmd2) from2 to2) =>
+            cmd1 == cmd2 && from1 /= from2 && to1 == to2
+       _ => False
+
+||| Promote the given edge to a Universal Edge. Since these can be travelled
+||| along from anywhere, this REMOVES the edge's `from` part.
+toUniversalEdge : (edge : DSAEdge) -> {auto 0 edgeOK : IsPlainEdge edge} -> UniversalEdge
+toUniversalEdge (MkDSAEdge cmd@(PlainCmd _) _ to) =
+  MkUniversalEdge (Element cmd ItIsPlain) to
+
+||| Extract the Universal Edges to a separate list, removing them from the given
+||| list of all edges in the process, and accumulating the Universal Edges and
+||| non-Universal Edges in the given accumulator.
+covering
+extractUniversalEdgesInto :  (states : Subset (List Value) (All IsDataVal))
+                          -> (allEdges : List DSAEdge)
+                          -> (acc : (List UniversalEdge, List DSAEdge))
+                          -> (List UniversalEdge, List DSAEdge)
+extractUniversalEdgesInto _ [] acc = acc
+
+extractUniversalEdgesInto states (cand@(MkDSAEdge (PlainCmd cmd) from to) :: es) (accUEs, accEs) =
+  let cands = filter (isUniversalEdgeSimilar cand) es
+      nStates = length states.fst
+      nCands = length cands + 1   -- remember we matched on the current candidate
+  in if nCands == nStates
+        then let -- newUE = toUniversalEdge cand
+                 newUE = toUniversalEdge (MkDSAEdge (PlainCmd cmd) from to)
+                 newTail = es \\ cands   -- remove the candidates from the tail
+                 newAcc = (newUE :: accUEs, accEs)
+             in extractUniversalEdgesInto states newTail newAcc
+        else if nCands == (nStates `minus` 1)      -- might not have a NoOp edge
+                &&
+                all diffFromTo (cand :: cands)     -- check this ^
+                then let newUE = toUniversalEdge (MkDSAEdge (PlainCmd cmd) from to)
+                         newTail = es \\ cands
+                         newAcc = (newUE :: accUEs, accEs)
+                     in extractUniversalEdgesInto states newTail newAcc
+                else extractUniversalEdgesInto states es (accUEs, cand :: accEs)
+
+extractUniversalEdgesInto states (e@(MkDSAEdge _ from to) :: es) (accUEs, accEs) =
+  extractUniversalEdgesInto states es (accUEs, e :: accEs)
+
 ||| Extract the Universal Edges to a separate list, removing them from the given
 ||| list of all edges in the process.
-extractUniversalEdges : (allEdges : List DSAEdge) -> (List UniversalEdge, List DSAEdge)
+|||
+||| See also: `extractUniversalEdgesInto`
+covering
+extractUniversalEdges :  (states : Subset (List Value) (All IsDataVal))
+                      -> (allEdges : List DSAEdge)
+                      -> (List UniversalEdge, List DSAEdge)
+extractUniversalEdges states allEdges = extractUniversalEdgesInto states allEdges ([], [])
 
 -----------
 -- toDSA --
@@ -504,7 +616,7 @@ toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
   do dsaName <- dotidToDSAName id_
      states <- dotStmtsToStates stmtList
      allEdges <- dotStmtsToLabels stmtList
-     let (univEdges, dsaEdges) = extractUniversalEdges allEdges
+     let (univEdges, dsaEdges) = extractUniversalEdges states allEdges
      let edges = splitPlainEdges dsaEdges
      let dsa = MkDSAv2 dsaName states edges univEdges
      pure dsa
