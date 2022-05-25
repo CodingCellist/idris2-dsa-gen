@@ -387,6 +387,12 @@ export
 filterInvisAssign : List Assign -> List Assign
 filterInvisAssign = filterAssignRHS isInvis
 
+
+||| Tries to remove any statement from the given DOT which would prevent the
+||| graph from being converted to a DSA.
+export
+sanitise : Graph -> Graph
+
 ||| Returns `True` iff the given edge connects to the given state. Returns
 ||| `False` otherwise.
 covering
@@ -641,12 +647,29 @@ dotFile : String
 dotFile =
   "/home/thomas/Documents/01-PhD/idris2-projects/dot-parse/dot-examples/05-ATM-DSAv2.gv"
 
+-- a DOT file which contains disallowed stuff for DSA conversion
+dirtyFile : String
+dirtyFile =
+  "/home/thomas/Documents/01-PhD/03-Papers/dsa-gen/idris-src/HansenBrady2022/ARQ-Ideation-2.gv"
+
 export
 covering
 testToDSAv2 : IO ()
 testToDSAv2 =
-  do Right dot <- readDOTFile dotFile
+  do Right dot <- readDOTFile dirtyFile
       | Left err => putStrLn $ "DOT READ ERROR: " ++ show err
+     let Right dsa = toDSAv2 dot
+          | Left err => putStrLn $ "TODSA ERROR: " ++ show err
+     putStrLn "\nSUCCESS!!!\n"
+     printLn dsa
+
+export
+covering
+testSanitise : IO ()
+testSanitise =
+  do Right dirtyDot <- readDOTFile dirtyFile
+      | Left err => putStrLn $ "DOT READ ERROR: " ++ show err
+     let dot = sanitise dirtyDot
      let Right dsa = toDSAv2 dot
           | Left err => putStrLn $ "TODSA ERROR: " ++ show err
      putStrLn "\nSUCCESS!!!\n"
