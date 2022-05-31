@@ -14,6 +14,18 @@ bind dsaName =
   "      -> (contn : (res : resTy) -> \{dsaName}Cmd cResTy (state2_fn res) state3_fn)\n" ++
   "      -> \{dsaName}Cmd cResTy state_1 state3_fn"
 
+||| The data type for DSA states is based on the DSA's name.
+stateType : (dsaName : String) -> String
+stateType dsaName =
+  "data \{dsaName}State : Type where"
+
+||| The data type for DSA commands is based on the DSA's name and carries the
+||| result type, the current state, and a function from the result type to the
+||| next state.
+cmdType : (dsaName : String) -> String
+cmdType dsaName =
+  "data \{dsaName}Cmd : (resTy : Type) -> \{dsaName}State -> (resTy -> \{dsaName}State) -> Type where"
+
 ||| Convert the given `DSA` to Idris2 source code.
 export
 toIdris : DSAv2 -> String
