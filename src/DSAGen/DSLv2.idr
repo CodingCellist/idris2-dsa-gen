@@ -365,33 +365,11 @@ accState newState acc = if elem newState acc
                            then acc
                            else (newState :: acc)
 
-||| Returns `True` iff the `DOTID` was a `NameID` or a `StringID` containing the
-||| value 'invis'.
-export
-isInvis : DOTID -> Bool
-isInvis (NameID "invis") = True
-isInvis (StringID "\"invis\"") = True
-isInvis _ = False
-
-||| Remove any assignment whose right-hand-side satisfies the given predicate.
-export
-filterAssignRHS : (by : DOTID -> Bool) -> List Assign -> List Assign
-filterAssignRHS by [] = []
-filterAssignRHS by (a@(MkAssign _ rhs) :: as) =
-  if isInvis rhs
-     then filterAssignRHS by as
-     else a :: filterAssignRHS by as
-
-||| Remove any assignment which assigns to the value "invis".
-export
-filterInvisAssign : List Assign -> List Assign
-filterInvisAssign = filterAssignRHS isInvis
-
-
 ||| Tries to remove any statement from the given DOT which would prevent the
 ||| graph from being converted to a DSA.
 export
 sanitise : Graph -> Graph
+sanitise = removeClusters . removeInvisEdges
 
 ||| Returns `True` iff the given edge connects to the given state. Returns
 ||| `False` otherwise.
