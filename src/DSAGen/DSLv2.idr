@@ -634,7 +634,7 @@ export
 covering
 testToDSAv2 : IO ()
 testToDSAv2 =
-  do Right dot <- readDOTFile dirtyFile
+  do Right dot <- readDOTFile dotFile
       | Left err => putStrLn $ "DOT READ ERROR: " ++ show err
      let Right dsa = toDSAv2 dot
           | Left err => putStrLn $ "TODSA ERROR: " ++ show err
