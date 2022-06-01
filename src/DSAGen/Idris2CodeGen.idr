@@ -12,6 +12,10 @@ import Data.String
 -- Static definitions --
 ------------------------
 
+||| No result is defined as Unit.
+noRes : String
+noRes = "()"
+
 ||| Pure is always defined for DSAs in the same way.
 pure : (dsaName : String) -> String
 pure dsaName =
@@ -85,9 +89,9 @@ genValue (Tuple fst snd) = "(\{genValue fst}, \{genValue snd})"
 |||
 ||| @ dcTy a string representing the return type of the data constructor
 covering
-genDataCons : (dcTy : String) -> Subset Value IsDataVal -> String
-genDataCons dcTy (Element (DataVal dc Nothing) isDV) = "\{dc} : \{dcTy}"
-genDataCons dcTy (Element (DataVal dc (Just args)) isDV) =
+genDataConsDecl : (dcTy : String) -> Subset Value IsDataVal -> String
+genDataConsDecl dcTy (Element (DataVal dc Nothing) isDV) = "\{dc} : \{dcTy}"
+genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
   let argStrings = map genValue args
       argString = joinBy " -> " $ toList argStrings
   in "\{dc} : \{argString} -> \{dcTy}"
@@ -98,7 +102,16 @@ genDataCons dcTy (Element (DataVal dc (Just args)) isDV) =
 
 --- ||| A plain command is a constructor which takes no arguments and goes to a
 --- ||| constant state.
---- genPlainCmd : (dsaName : String) -> Subset DSALabel IsPlainCmd -> String
+--- |||
+--- ||| @ dsaName The name of the DSA that the command is part of.
+--- ||| @ desc The `DSALabel` containing the description of the plain command.
+--- ||| @ dest The `Value` describing the destination/to of the command.
+--- genPlainCmd :  (dsaName : String)
+---             -> (desc : Subset DSALabel IsPlainCmd)
+---             -> (dest : Subset Value IsDataVal)
+---             -> String
+--- genPlainCmd dsaName (Element (PlainCmd cmd) isPlain) (Element (DataVal to args) isDV) =
+---
 --- genPlainCmd dsaName (Element (PlainCmd cmd) isPlain) =
 ---   "\{cmd} : \{dsaName}Cmd () ?genPlainCmd_rhs_1"
 
@@ -108,13 +121,15 @@ genDataCons dcTy (Element (DataVal dc (Just args)) isDV) =
 
 ||| A universal edge can be taken from anywhere in the DSA, and so does not name
 ||| a specific state in its command definition.
+covering
 genUniversalEdge : (dsaName : String) -> (ue : UniversalEdge) -> String
 genUniversalEdge dsaName (MkUniversalEdge
                          (Element (PlainCmd cmd) isPlain)
-                         (Element (DataVal to args) isDV)
+                         (Element dest@(DataVal to args) isDV)
                          ) =
-  -- TODO: Resume here, but it's going to be a bit complicated...
-  ?genUniversalEdge_rhs -- "\{cmd} : \{dsaName}Cmd () anyState (const \{to})"
+  let cmdStart = commandTy dsaName
+      destState = genValue dest
+  in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
 -----------------------
 -- Generating Idris2 --
@@ -130,21 +145,50 @@ toIdris2 (MkDSAv2 dsaName states edges universalEdges) = ?toIdris_rhs_0
 -- TESTS
 --------------------------------------------------------------------------------
 
+-------------------------
+-- Basic data cons gen --
+-------------------------
+
 ||| "Test : ATMCmd"
 covering
 testGenDataCons1 : String
 testGenDataCons1 =
-  genDataCons "ATMCmd" (Element (DataVal "Test" Nothing) ItIsDataVal)
+  genDataConsDecl "ATMCmd" (Element (DataVal "Test" Nothing) ItIsDataVal)
 
 ||| "Test : sn -> ATMCmd"
 covering
 testGenDataCons2 : String
 testGenDataCons2 =
-  genDataCons "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: []))) ItIsDataVal)
+  genDataConsDecl "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: []))) ItIsDataVal)
 
 ||| "Test : sn -> (sn + 1) -> ATMCmd"
 covering
 testGenDataCons3 : String
 testGenDataCons3 =
-  genDataCons "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: [AddExpr (IdrName "sn") (LitVal 1)]))) ItIsDataVal)
+  genDataConsDecl "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: [AddExpr (IdrName "sn") (LitVal 1)]))) ItIsDataVal)
+
+
+------------
+-- UE gen --
+------------
+
+||| "UETest : ATMCmd () anyState (const Ready)"
+covering
+testGenUE1 : String
+testGenUE1 =
+  let cmd : Subset DSALabel IsPlainCmd
+          = Element (PlainCmd "UETest") ItIsPlain
+      dest : Subset Value IsDataVal
+           = Element (DataVal "Ready" Nothing) ItIsDataVal
+  in genUniversalEdge "ATM" (MkUniversalEdge cmd dest)
+
+||| "UETest : ATMCmd () anyState (const (Ready a b))"
+covering
+testGenUE2 : String
+testGenUE2 =
+  let cmd : Subset DSALabel IsPlainCmd
+          = Element (PlainCmd "UETest") ItIsPlain
+      dest : Subset Value IsDataVal
+           = Element (DataVal "Ready" (Just $ (IdrName "a") ::: [IdrName "b"])) ItIsDataVal
+  in genUniversalEdge "ATM" (MkUniversalEdge cmd dest)
 
