@@ -144,12 +144,17 @@ genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take command
+covering
 genTakeEdge :  (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsTakeEdge edge}
             -> String
 genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
-  ?genTakeEdge_rhs_0
+  let cmdTyStart = commandTy dsaName
+      argStr = genValue arg
+      fromState = genValue from.fst
+      toState = genValue to.fst
+  in "\{cmd} : \{argStr} -> \{cmdTyStart} \{noRes} \{fromState} (const \{toState})"
 
 ||| A command which produces a value is a constructor with the result as the
 ||| return type, and it must always go to the same state (or it would be a
@@ -157,6 +162,7 @@ genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the prod command
+covering
 genProdEdge :  (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsProdEdge edge}
@@ -301,4 +307,56 @@ testGenPlainEdge2 =
 
       edge : Subset DSAEdge IsPlainEdge
       edge = Element (MkDSAEdge cmd from to) EdgeIsPlain
+
+-------------------
+-- Take-edge gen --
+-------------------
+
+||| "CheckPIN : PIN -> ATMCmd () CardInserted (const Session)"
+covering
+testGenTakeEdge1 : String
+testGenTakeEdge1 =
+  genTakeEdge "ATM" edge
+  where
+    cmd : String
+    cmd = "CheckPIN"
+
+    arg : TakeArg
+    arg = Takes (IdrName "PIN")
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "CardInserted" Nothing) ItIsDataVal
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Session" Nothing) ItIsDataVal
+
+    edge : DSAEdge
+    edge = MkDSAEdge (TakeCmd cmd arg) from to
+
+||| "CheckPIN : (PIN, (1 + n)) -> ATMCmd () (CardInserted (c, d)) (const (Session a (b + 2)))"
+covering
+testGenTakeEdge2 : String
+testGenTakeEdge2 =
+  genTakeEdge "ATM" edge
+  where
+    cmd : String
+    cmd = "CheckPIN"
+
+    arg : TakeArg
+    arg = Takes (Tuple (IdrName "PIN") (AddExpr (LitVal 1) (IdrName "n")))
+
+    fromArgs : Maybe $ List1 Value
+    fromArgs = Just $ (Tuple (IdrName "c") (IdrName "d")) ::: []
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "CardInserted" fromArgs) ItIsDataVal
+
+    toArgs : Maybe $ List1 Value
+    toArgs = Just $ (IdrName "a") ::: [AddExpr (IdrName "b") (LitVal 2)]
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Session" toArgs) ItIsDataVal
+
+    edge : DSAEdge
+    edge = MkDSAEdge (TakeCmd cmd arg) from to
 
