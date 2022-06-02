@@ -96,24 +96,22 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
       argString = joinBy " -> " $ toList argStrings
   in "\{dc} : \{argString} -> \{dcTy}"
 
-----------------
--- Command CG --
-----------------
+-------------
+-- Edge CG --
+-------------
 
---- ||| A plain command is a constructor which takes no arguments and goes to a
---- ||| constant state.
---- |||
---- ||| @ dsaName The name of the DSA that the command is part of.
---- ||| @ desc The `DSALabel` containing the description of the plain command.
---- ||| @ dest The `Value` describing the destination/to of the command.
---- genPlainCmd :  (dsaName : String)
----             -> (desc : Subset DSALabel IsPlainCmd)
----             -> (dest : Subset Value IsDataVal)
----             -> String
---- genPlainCmd dsaName (Element (PlainCmd cmd) isPlain) (Element (DataVal to args) isDV) =
----
---- genPlainCmd dsaName (Element (PlainCmd cmd) isPlain) =
----   "\{cmd} : \{dsaName}Cmd () ?genPlainCmd_rhs_1"
+||| A plain command is a constructor which takes no arguments and always goes to
+||| the same state (i.e. no dependent transition).
+|||
+||| @ dsaName The name of the DSA that the command is part of.
+||| @ edge The `DSAEdge` containing the description of the plain command.
+covering
+genPlainEdge : (dsaName : String) -> (edge : Subset DSAEdge IsPlainEdge) -> String
+genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
+  let cmdStart = commandTy dsaName
+      fromState = genValue from.fst
+      toState = genValue to.fst
+  in "\{cmd} : \{cmdStart} \{noRes} \{fromState} (const \{toState})"
 
 -----------------------
 -- Universal Edge CG --
@@ -138,7 +136,11 @@ genUniversalEdge dsaName (MkUniversalEdge
 ||| Convert the given `DSA` to Idris2 source code.
 export
 toIdris2 : DSAv2 -> String
-toIdris2 (MkDSAv2 dsaName states edges universalEdges) = ?toIdris_rhs_0
+toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
+  let states = ?genStates dsaName states
+      edges = ?genEdges dsaName edges
+      ues = map (genUniversalEdge dsaName) universalEdges
+  in ?toIdris_rhs_0
 
 
 --------------------------------------------------------------------------------
@@ -191,4 +193,50 @@ testGenUE2 =
       dest : Subset Value IsDataVal
            = Element (DataVal "Ready" (Just $ (IdrName "a") ::: [IdrName "b"])) ItIsDataVal
   in genUniversalEdge "ATM" (MkUniversalEdge cmd dest)
+
+--------------------
+-- Plain edge gen --
+--------------------
+
+||| "EjectCard : ATMCmd () Session (const Ready)
+covering
+testGenPlainEdge1 : String
+testGenPlainEdge1 =
+  genPlainEdge "ATM" edge
+  where
+      cmd : DSALabel
+      cmd = PlainCmd "EjectCard"
+
+      from : Subset Value IsDataVal
+      from = Element (DataVal "Session" Nothing) ItIsDataVal
+
+      to : Subset Value IsDataVal
+      to = Element (DataVal "Ready" Nothing) ItIsDataVal
+
+      edge : Subset DSAEdge IsPlainEdge
+      edge = Element (MkDSAEdge cmd from to) EdgeIsPlain
+
+||| "EjectCard : ATMCmd () (Session (c, d)) (const (Ready a (b + 2)))
+covering
+testGenPlainEdge2 : String
+testGenPlainEdge2 =
+  genPlainEdge "ATM" edge
+  where
+      cmd : DSALabel
+      cmd = PlainCmd "EjectCard"
+
+      fromArgs : Maybe $ List1 Value
+      fromArgs = Just $ (Tuple (IdrName "c") (IdrName "d")) ::: []
+
+      from : Subset Value IsDataVal
+      from = Element (DataVal "Session" fromArgs) ItIsDataVal
+
+      toArgs : Maybe $ List1 Value
+      toArgs = Just $ (IdrName "a") ::: [AddExpr (IdrName "b") (LitVal 2)]
+
+      to : Subset Value IsDataVal
+      to = Element (DataVal "Ready" toArgs) ItIsDataVal
+
+      edge : Subset DSAEdge IsPlainEdge
+      edge = Element (MkDSAEdge cmd from to) EdgeIsPlain
 
