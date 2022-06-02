@@ -100,6 +100,31 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
 -- Edge CG --
 -------------
 
+-- helper proofs/constraints
+
+data IsTakeEdge : DSAEdge -> Type where
+  ItIsTakeEdge : IsTakeEdge (MkDSAEdge (TakeCmd _ _) _ _)
+
+data IsDepEdge : DSAEdge -> Type where
+  ItIsDepEdge : IsDepEdge (MkDSAEdge (DepCmd _ _) _ _)
+
+data IsProdEdge : DSAEdge -> Type where
+  ItIsProdEdge : IsProdEdge (MkDSAEdge (ProdCmd _ _) _ _)
+
+data IsTDEdge : DSAEdge -> Type where
+  ItIsTDEdge : IsTDEdge (MkDSAEdge (TDCmd _ _ _) _ _)
+
+data IsTPEdge : DSAEdge -> Type where
+  ItIsTPEdge : IsTPEdge (MkDSAEdge (TPCmd _ _ _) _ _)
+
+data IsDPEdge : DSAEdge -> Type where
+  ItIsDPEdge : IsDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)
+
+data IsTDPEdge : DSAEdge -> Type where
+  ItIsTDPEdge : IsTDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)
+
+-- cg functions
+
 ||| A plain command is a constructor which takes no arguments and always goes to
 ||| the same state (i.e. no dependent transition).
 |||
@@ -112,6 +137,43 @@ genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
       fromState = genValue from.fst
       toState = genValue to.fst
   in "\{cmd} : \{cmdStart} \{noRes} \{fromState} (const \{toState})"
+
+||| A command which takes a value is a function from the argument to a
+||| constructor which produces nothing and goes to a constant state (or it would
+||| be a take-dep command).
+|||
+||| @ dsaName The name of the DSA that the command is part of.
+||| @ edge The `DSAEdge` containing the description of the take command
+genTakeEdge :  (dsaName : String)
+            -> (edge : DSAEdge)
+            -> {auto 0 constraint : IsTakeEdge edge}
+            -> String
+genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
+  ?genTakeEdge_rhs_0
+
+||| A command which produces a value is a constructor with the result as the
+||| return type, and it must always go to the same state (or it would be a
+||| prod-dep command).
+|||
+||| @ dsaName The name of the DSA that the command is part of.
+||| @ edge The `DSAEdge` containing the description of the prod command
+genProdEdge :  (dsaName : String)
+            -> (edge : DSAEdge)
+            -> {auto 0 constraint : IsProdEdge edge}
+            -> String
+genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
+  ?genProdEdge_rhs_0
+
+||| A command which takes and produces a value is a function from the argument
+||| to a constructor with the result as the return type, and it must always go
+||| to the same state (or it would be a take-dep-prod command).
+|||
+||| @ dsaName The name of the DSA that the command is part of.
+||| @ edge The `DSAEdge` containing the description of the take-prod command
+genTPEdge :  (dsaName : String)
+          -> (edge : DSAEdge)
+          -> {auto 0 constraint : IsTPEdge edge}
+          -> String
 
 -----------------------
 -- Universal Edge CG --
