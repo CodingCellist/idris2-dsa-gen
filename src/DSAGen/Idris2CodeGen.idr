@@ -168,7 +168,11 @@ genProdEdge :  (dsaName : String)
             -> {auto 0 constraint : IsProdEdge edge}
             -> String
 genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
-  ?genProdEdge_rhs_0
+  let cmdTyStart = commandTy dsaName
+      resStr = genValue val
+      fromState = genValue from.fst
+      toState = genValue to.fst
+  in "\{cmd} : \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
 ||| A command which takes and produces a value is a function from the argument
 ||| to a constructor with the result as the return type, and it must always go
@@ -359,4 +363,60 @@ testGenTakeEdge2 =
 
     edge : DSAEdge
     edge = MkDSAEdge (TakeCmd cmd arg) from to
+
+-------------------
+-- Prod-edge gen --
+-------------------
+
+||| "CheckPIN : ATMCmd (PINCheck) CardInserted (const Session)"
+covering
+testGenProdEdge1 : String
+testGenProdEdge1 =
+  genProdEdge "ATM" edge
+  where
+    cmd : String
+    cmd = "CheckPIN"
+
+    res : ProdArg
+    res = Produce (DataVal "PINCheck" Nothing)
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "CardInserted" Nothing) ItIsDataVal
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Session" Nothing) ItIsDataVal
+
+    edge : DSAEdge
+    edge = MkDSAEdge (ProdCmd cmd res) from to
+
+||| "CheckPIN : ATMCmd ((PINCheck pin), sTok) (CardInserted (c, (1 + d))) (const (Session sTok))"
+covering
+testGenProdEdge2 : String
+testGenProdEdge2 =
+  genProdEdge "ATM" edge
+  where
+    cmd : String
+    cmd = "CheckPIN"
+
+    pcArg : Maybe $ List1 Value
+    pcArg = Just $ (IdrName "pin") ::: []
+
+    res : ProdArg
+    res = Produce (Tuple (DataVal "PINCheck" pcArg) (IdrName "sTok"))
+
+    fromArgs : Maybe $ List1 Value
+    fromArgs = Just $
+               (Tuple (IdrName "c") (AddExpr (LitVal 1) (IdrName "d"))) ::: []
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "CardInserted" fromArgs) ItIsDataVal
+
+    toArgs : Maybe $ List1 Value
+    toArgs = Just $ (IdrName "sTok") ::: []
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Session" toArgs) ItIsDataVal
+
+    edge : DSAEdge
+    edge = MkDSAEdge (ProdCmd cmd res) from to
 
