@@ -45,15 +45,14 @@ data IsTDPEdge : DSAEdge -> Type where
 ||| corresponding state.
 record DepRes where
   constructor MkDepRes
-  depCase : () -- ?depCaseType_TODO
-  dest : Subset Value IsDataVal
+  depCase : DepArg
+  caseTo : Subset Value IsDataVal
 
 ||| The result of accumulating all the dependent edges of a depedent command.
 data DepCmdAcc : Type where
   MkDCAcc :  (cmd : String)
-          -> (cases : List1 DepRes)
           -> (from : Subset Value IsDataVal)
-          -> (to : Subset Value IsDataVal)
+          -> (cases : List1 DepRes)
           -> DepCmdAcc
 
 
@@ -65,6 +64,8 @@ data DepCmdAcc : Type where
 initDEAcc :  (iDepEdge : DSAEdge)
           -> {auto 0 constraint : IsDepEdge iDepEdge}
           -> DepCmdAcc
+initDEAcc (MkDSAEdge (DepCmd cmd depRes) from to) =
+  MkDCAcc cmd from (singleton $ MkDepRes depRes to)
 
 ||| Add the dependent edge's case-dest pair to the accumulator.
 |||
