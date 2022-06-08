@@ -9,8 +9,37 @@ import Data.String
 %default total
 
 --------------------------------------------------------------------------------
--- HELPER DATA-TYPES
+-- HELPERS
 --------------------------------------------------------------------------------
+
+------------------------
+-- Proofs/Constraints --
+------------------------
+
+data IsTakeEdge : DSAEdge -> Type where
+  ItIsTakeEdge : IsTakeEdge (MkDSAEdge (TakeCmd _ _) _ _)
+
+data IsDepEdge : DSAEdge -> Type where
+  ItIsDepEdge : IsDepEdge (MkDSAEdge (DepCmd _ _) _ _)
+
+data IsProdEdge : DSAEdge -> Type where
+  ItIsProdEdge : IsProdEdge (MkDSAEdge (ProdCmd _ _) _ _)
+
+data IsTDEdge : DSAEdge -> Type where
+  ItIsTDEdge : IsTDEdge (MkDSAEdge (TDCmd _ _ _) _ _)
+
+data IsTPEdge : DSAEdge -> Type where
+  ItIsTPEdge : IsTPEdge (MkDSAEdge (TPCmd _ _ _) _ _)
+
+data IsDPEdge : DSAEdge -> Type where
+  ItIsDPEdge : IsDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)
+
+data IsTDPEdge : DSAEdge -> Type where
+  ItIsTDPEdge : IsTDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)
+
+----------------
+-- Data types --
+----------------
 
 ||| A dependent result links a case of the edge's dependency value to the
 ||| corresponding state.
@@ -26,6 +55,25 @@ data DepCmdAcc : Type where
           -> (from : Subset Value IsDataVal)
           -> (to : Subset Value IsDataVal)
           -> DepCmdAcc
+
+
+---------------------------
+-- Accumulator functions --
+---------------------------
+
+||| Initialise the dependent edge accumulator using the given dependent edge.
+initDEAcc :  (iDepEdge : DSAEdge)
+          -> {auto 0 constraint : IsDepEdge iDepEdge}
+          -> DepCmdAcc
+
+||| Add the dependent edge's case-dest pair to the accumulator.
+|||
+||| @ acc The dependent edge accumulator.
+||| @ depEdge The edge whose case-dest pair to add.
+addDepCase :  (acc : DepCmdAcc)
+           -> (depEdge : DSAEdge)
+           -> {auto 0 constraint : IsDepEdge depEdge}
+           -> DepCmdAcc
 
 
 --------------------------------------------------------------------------------
@@ -120,34 +168,9 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
       argString = joinBy " -> " $ toList argStrings
   in "\{dc} : \{argString} -> \{dcTy}"
 
--------------
--- Edge CG --
--------------
-
--- helper proofs/constraints
-
-data IsTakeEdge : DSAEdge -> Type where
-  ItIsTakeEdge : IsTakeEdge (MkDSAEdge (TakeCmd _ _) _ _)
-
-data IsDepEdge : DSAEdge -> Type where
-  ItIsDepEdge : IsDepEdge (MkDSAEdge (DepCmd _ _) _ _)
-
-data IsProdEdge : DSAEdge -> Type where
-  ItIsProdEdge : IsProdEdge (MkDSAEdge (ProdCmd _ _) _ _)
-
-data IsTDEdge : DSAEdge -> Type where
-  ItIsTDEdge : IsTDEdge (MkDSAEdge (TDCmd _ _ _) _ _)
-
-data IsTPEdge : DSAEdge -> Type where
-  ItIsTPEdge : IsTPEdge (MkDSAEdge (TPCmd _ _ _) _ _)
-
-data IsDPEdge : DSAEdge -> Type where
-  ItIsDPEdge : IsDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)
-
-data IsTDPEdge : DSAEdge -> Type where
-  ItIsTDPEdge : IsTDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)
-
--- cg functions
+-----------
+-- Edges --
+-----------
 
 ||| A plain command is a constructor which takes no arguments and always goes to
 ||| the same state (i.e. no dependent transition).
