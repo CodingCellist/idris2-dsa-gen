@@ -49,11 +49,16 @@ record DepRes where
   caseTo : Subset Value IsDataVal
 
 ||| The result of accumulating all the dependent edges of a depedent command.
-data DepCmdAcc : Type where
-  MkDCAcc :  (cmd : String)
-          -> (from : Subset Value IsDataVal)
-          -> (cases : List1 DepRes)
-          -> DepCmdAcc
+record DepCmdAcc where
+  constructor MkDCAcc
+  ||| The name of the command.
+  cmd : String
+
+  ||| The state the command starts at.
+  from : Subset Value IsDataVal
+
+  ||| The list of value-state pairs that the command can dependently go to.
+  cases : List1 DepRes
 
 
 ---------------------------
@@ -64,17 +69,25 @@ data DepCmdAcc : Type where
 initDEAcc :  (iDepEdge : DSAEdge)
           -> {auto 0 constraint : IsDepEdge iDepEdge}
           -> DepCmdAcc
-initDEAcc (MkDSAEdge (DepCmd cmd depRes) from to) =
-  MkDCAcc cmd from (singleton $ MkDepRes depRes to)
+initDEAcc (MkDSAEdge (DepCmd cmd depCase) from to) =
+  MkDCAcc cmd from (singleton $ MkDepRes depCase to)
 
 ||| Add the dependent edge's case-dest pair to the accumulator.
 |||
 ||| @ acc The dependent edge accumulator.
 ||| @ depEdge The edge whose case-dest pair to add.
-addDepCase :  (acc : DepCmdAcc)
-           -> (depEdge : DSAEdge)
-           -> {auto 0 constraint : IsDepEdge depEdge}
-           -> DepCmdAcc
+addDECase :  (acc : DepCmdAcc)
+          -> (depEdge : DSAEdge)
+          -> {auto 0 constraint : IsDepEdge depEdge}
+          -> DepCmdAcc
+addDECase acc (MkDSAEdge (DepCmd cmd depCase) from to) =
+  { cases $= cons (MkDepRes depCase to) } acc
+
+
+||| Accumulate the list of dependent edges into a single data-structure keeping
+||| track of the dependent results.
+-- FIXME: need to port+merge Data.List.Quantifiers to Data.List1.Quantifiers
+-- accDEs : (des : Subset (List1 DSAEdge) (All IsDepEdge)) -> DepCmdAcc
 
 
 --------------------------------------------------------------------------------
