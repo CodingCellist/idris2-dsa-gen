@@ -180,10 +180,18 @@ genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take-prod command
+covering
 genTPEdge :  (dsaName : String)
           -> (edge : DSAEdge)
           -> {auto 0 constraint : IsTPEdge edge}
           -> String
+genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
+  let cmdTyStart = commandTy dsaName
+      argStr = genValue arg
+      resStr = genValue val
+      fromState = genValue from.fst
+      toState = genValue to.fst
+  in "\{cmd} : \{argStr} -> \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
 -----------------------
 -- Universal Edge CG --
@@ -419,4 +427,70 @@ testGenProdEdge2 =
 
     edge : DSAEdge
     edge = MkDSAEdge (ProdCmd cmd res) from to
+
+------------------------
+-- Take-prod-edge gen --
+------------------------
+
+||| "CheckPIN : (PIN) -> ATMCmd (PINCheck) (CardInserted) (const (Session))"
+covering
+testGenTPEdge1 : String
+testGenTPEdge1 =
+  genTPEdge "ATM" tpEdge
+  where
+    cmd : String
+    cmd = "CheckPIN"
+
+    takes : TakeArg
+    takes = Takes (DataVal "PIN" Nothing)
+
+    returns : ProdArg
+    returns = Produce (DataVal "PINCheck" Nothing)
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "CardInserted" Nothing) ItIsDataVal
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Session" Nothing) ItIsDataVal
+
+    tpEdge : DSAEdge
+    tpEdge = MkDSAEdge (TPCmd cmd takes returns) from to
+
+||| "Send : (SeqNo sn) -> ARQCmd ((SeqNo sn), (csn + 1)) (Ready sn csn) (const (Waiting sn (csn + 1)))"
+covering
+testGenTPEdge2 : String
+testGenTPEdge2 =
+  genTPEdge "ARQ" tpEdge
+  where
+    cmd : String
+    cmd = "Send"
+
+    -- sequence number
+    sn : Value
+    sn = IdrName "sn"
+
+    seqNo : Value
+    seqNo = DataVal "SeqNo" (Just (sn ::: []))
+
+    takes : TakeArg
+    takes = Takes seqNo
+
+    -- current sequence number
+    csn : Value
+    csn = IdrName "csn"
+
+    one : Value
+    one = LitVal 1
+
+    returns : ProdArg
+    returns = Produce (Tuple seqNo (AddExpr csn one))
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "Ready" (Just (sn ::: [csn]))) ItIsDataVal
+
+    to : Subset Value IsDataVal
+    to = Element (DataVal "Waiting" (Just (sn ::: [AddExpr csn one]))) ItIsDataVal
+
+    tpEdge : DSAEdge
+    tpEdge = MkDSAEdge (TPCmd cmd takes returns) from to
 
