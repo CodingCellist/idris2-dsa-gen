@@ -8,6 +8,30 @@ import Data.String
 
 %default total
 
+--------------------------------------------------------------------------------
+-- HELPER DATA-TYPES
+--------------------------------------------------------------------------------
+
+||| A dependent result links a case of the edge's dependency value to the
+||| corresponding state.
+record DepRes where
+  constructor MkDepRes
+  depCase : () -- ?depCaseType_TODO
+  dest : Subset Value IsDataVal
+
+||| The result of accumulating all the dependent edges of a depedent command.
+data DepCmdAcc : Type where
+  MkDCAcc :  (cmd : String)
+          -> (cases : List1 DepRes)
+          -> (from : Subset Value IsDataVal)
+          -> (to : Subset Value IsDataVal)
+          -> DepCmdAcc
+
+
+--------------------------------------------------------------------------------
+-- CODE GEN
+--------------------------------------------------------------------------------
+
 ------------------------
 -- Static definitions --
 ------------------------
@@ -179,7 +203,7 @@ genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
 ||| to the same state (or it would be a take-dep-prod command).
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
-||| @ edge The `DSAEdge` containing the description of the take-prod command
+||| @ edge The `DSAEdge` containing the description of the take-prod command.
 covering
 genTPEdge :  (dsaName : String)
           -> (edge : DSAEdge)
