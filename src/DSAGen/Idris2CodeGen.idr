@@ -60,6 +60,26 @@ record DepCmdAcc where
   ||| The list of value-state pairs that the command can dependently go to.
   cases : List1 DepRes
 
+||| A produced value on a dependent edge contains the dependent case and
+||| destination, along with the result.
+record ProdDepRes where
+  constructor MkProdDepRes
+  depCase : DepArg
+  caseTo : Subset Value IsDataVal
+  res : ProdArg
+
+||| The result of accumulating all the dependent cases of a dep-prod command.
+record DPCmdAcc where
+  constructor MkDPAcc
+  ||| The name of the command.
+  cmd : String
+
+  ||| The state the command starts at.
+  from : Subset Value IsDataVal
+
+  ||| The list of value-state pairs that the command can dependently go to.
+  cases : List1 ProdDepRes
+
 
 ---------------------------
 -- Accumulator functions --
@@ -88,8 +108,7 @@ accDEs : (des : List1 (Subset DSAEdge IsDepEdge)) -> DepCmdAcc
 accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
   foldl addDECase (initDEAcc head) tail
 
--- FIXME: Idris doesn't constrain the List1 elem.s based on All...
--- accDEs : (des : Subset (List1 DSAEdge) (All IsDepEdge)) -> DepCmdAcc
+initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
 
 --------------------------------------------------------------------------------
 -- CODE GEN
