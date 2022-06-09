@@ -66,10 +66,9 @@ record DepCmdAcc where
 ---------------------------
 
 ||| Initialise the dependent edge accumulator using the given dependent edge.
-initDEAcc :  (iDepEdge : DSAEdge)
-          -> {auto 0 constraint : IsDepEdge iDepEdge}
+initDEAcc :  (iDepEdge : Subset DSAEdge IsDepEdge)
           -> DepCmdAcc
-initDEAcc (MkDSAEdge (DepCmd cmd depCase) from to) =
+initDEAcc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
   MkDCAcc cmd from (singleton $ MkDepRes depCase to)
 
 ||| Add the dependent edge's case-dest pair to the accumulator.
@@ -77,18 +76,20 @@ initDEAcc (MkDSAEdge (DepCmd cmd depCase) from to) =
 ||| @ acc The dependent edge accumulator.
 ||| @ depEdge The edge whose case-dest pair to add.
 addDECase :  (acc : DepCmdAcc)
-          -> (depEdge : DSAEdge)
-          -> {auto 0 constraint : IsDepEdge depEdge}
+          -> (depEdge : Subset DSAEdge IsDepEdge)
           -> DepCmdAcc
-addDECase acc (MkDSAEdge (DepCmd cmd depCase) from to) =
+addDECase acc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
   { cases $= cons (MkDepRes depCase to) } acc
 
 
 ||| Accumulate the list of dependent edges into a single data-structure keeping
 ||| track of the dependent results.
--- FIXME: need to port+merge Data.List.Quantifiers to Data.List1.Quantifiers
--- accDEs : (des : Subset (List1 DSAEdge) (All IsDepEdge)) -> DepCmdAcc
+accDEs : (des : List1 (Subset DSAEdge IsDepEdge)) -> DepCmdAcc
+accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
+  foldl addDECase (initDEAcc head) tail
 
+-- FIXME: Idris doesn't constrain the List1 elem.s based on All...
+-- accDEs : (des : Subset (List1 DSAEdge) (All IsDepEdge)) -> DepCmdAcc
 
 --------------------------------------------------------------------------------
 -- CODE GEN
