@@ -297,6 +297,39 @@ genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
       toState = genValue to.fst
   in "\{cmd} : \{argStr} -> \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
+||| Generate the data-type which contains the results the given dependent
+||| command may return.
+|||
+||| @ completeDE The complete dependent command, i.e. the record containing the
+|||              accumulated possible cases and destinations, as well as the
+|||              command name and `from` state.
+covering
+genDepRess : (completeDE : DepCmdAcc) -> String
+genDepRess completeDE =
+  resTyDecl ++ resTyConss
+  where
+    depResName : DepArg -> String
+    depResName (DepsOn val) = genValue val
+
+    -- data constructor declarations in Idris may not be parenthesised
+    cleanDataConsDecl : (rawDCD : String) -> String
+    cleanDataConsDecl rawDCD =
+      case asList rawDCD of
+           ('(' :: rest) => substr 1 (minus (length rawDCD) 2) rawDCD
+           _ => rawDCD
+
+    -- the start of the result data-type declaration
+    resTyDecl : String
+    resTyDecl = "data \{completeDE.cmd}Res" ++ "\n" ++ indent tabWidth "= "
+
+    -- the string form of the dependent cases
+    caseNames : List1 DepRes -> List1 String
+    caseNames drs = map (\dr => cleanDataConsDecl $ depResName dr.depCase) drs
+
+    -- the constructors of the result data-type
+    resTyConss : String
+    resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDE.cases
+
 -----------------------
 -- Universal Edge CG --
 -----------------------
@@ -598,14 +631,13 @@ testGenTPEdge2 =
     tpEdge : DSAEdge
     tpEdge = MkDSAEdge (TPCmd cmd takes returns) from to
 
---------------------
--- Dep-edge acc.n --
---------------------
+---------------------------
+-- Dep-edge accumulation --
+---------------------------
 
 covering
-testAccDEs1 : String
-testAccDEs1 =
-  show $ accDEs $ de1 ::: []
+accDEs1 : DepCmdAcc
+accDEs1 = accDEs $ singleton de1
   where
     da1 : DepArg
     da1 = DepsOn (DataVal "Res1" Nothing)
@@ -619,10 +651,17 @@ testAccDEs1 =
     de1 : Subset DSAEdge IsDepEdge
     de1 = Element (MkDSAEdge (DepCmd "ADepCmd" da1) from to1) ItIsDepEdge
 
+||| "{ DepCmdAcc \"ADepCmd\"
+|||              Element (DataVal FromState) _
+|||              [{ DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }]
+|||  }"
 covering
-testAccDEs2 : String
-testAccDEs2 =
-  show $ accDEs $ de1 ::: [de2]
+testAccDEs1 : String
+testAccDEs1 = show accDEs1
+
+covering
+accDEs2 : DepCmdAcc
+accDEs2 = accDEs $ de1 ::: [de2]
   where
     da1 : DepArg
     da1 = DepsOn (DataVal "Res1" Nothing)
@@ -634,7 +673,7 @@ testAccDEs2 =
     to1 = Element (DataVal "ToState1" Nothing) ItIsDataVal
 
     de1 : Subset DSAEdge IsDepEdge
-    de1 = Element (MkDSAEdge (DepCmd "DepCmd1" da1) from to1) ItIsDepEdge
+    de1 = Element (MkDSAEdge (DepCmd "ADepCmd" da1) from to1) ItIsDepEdge
 
     da2 : DepArg
     da2 = DepsOn (DataVal "Res2" Nothing)
@@ -645,10 +684,19 @@ testAccDEs2 =
     de2 : Subset DSAEdge IsDepEdge
     de2 = Element (MkDSAEdge (DepCmd "ADepCmd" da2) from to2) ItIsDepEdge
 
+||| "{ DepCmdAcc \"ADepCmd\"
+|||              Element (DataVal FromState) _
+|||              [ { DepRes (DepsOn (DataVal Res2)) Element (DataVal ToState2) _ }
+|||              , { DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }
+|||              ]
+|||  }"
 covering
-testAccDEs3 : String
-testAccDEs3 =
-  show $ accDEs $ de1 ::: [de2, de3]
+testAccDEs2 : String
+testAccDEs2 = show accDEs2
+
+covering
+accDEs3 : DepCmdAcc
+accDEs3 = accDEs $ de1 ::: [de2, de3]
   where
     da1 : DepArg
     da1 = DepsOn (DataVal "Res1" Nothing)
@@ -660,7 +708,7 @@ testAccDEs3 =
     to1 = Element (DataVal "ToState1" Nothing) ItIsDataVal
 
     de1 : Subset DSAEdge IsDepEdge
-    de1 = Element (MkDSAEdge (DepCmd "DepCmd1" da1) from to1) ItIsDepEdge
+    de1 = Element (MkDSAEdge (DepCmd "ADepCmd" da1) from to1) ItIsDepEdge
 
     da2 : DepArg
     da2 = DepsOn (DataVal "Res2" (Just $ (DataVal "Arg2_1" Nothing) ::: []))
@@ -672,7 +720,7 @@ testAccDEs3 =
     de2 = Element (MkDSAEdge (DepCmd "ADepCmd" da2) from to2) ItIsDepEdge
 
     da3Args : List1 Value
-    da3Args = (DataVal "Arg3_1" Nothing) ::: [AddExpr (LitVal 1) (DataVal "Arg3_1" Nothing)]
+    da3Args = (DataVal "Arg3_1" Nothing) ::: [Tuple (DataVal "Arg3_1" Nothing) (DataVal "Arg3_2" Nothing)]
 
     da3 : DepArg
     da3 = DepsOn (DataVal "Res3" (Just da3Args))
@@ -682,4 +730,40 @@ testAccDEs3 =
 
     de3 : Subset DSAEdge IsDepEdge
     de3 = Element (MkDSAEdge (DepCmd "ADepCmd" da3) from to3) ItIsDepEdge
+
+||| "{ DepCmdAcc \"ADepCmd\"
+|||             Element (DataVal FromState) _
+|||             [ { DepRes (DepsOn (DataVal Res3 (DataVal Arg3_1) (Tuple (DataVal Arg3_1) (DataVal Arg3_2))) Element (DataVal ToState3 (DataVal ts3_1) _ }
+|||             , { DepRes (DepsOn (DataVal Res2 (DataVal Arg2_1)) Element (DataVal ToState2) _ }
+|||             , { DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }
+|||             ]
+|||  }"
+covering
+testAccDEs3 : String
+testAccDEs3 = show accDEs3 
+
+------------------------------
+-- Dep-edge result code-gen --
+------------------------------
+
+||| "data ADepCmdRes
+|||    = Res1"
+covering
+testGenDepRess1 : String
+testGenDepRess1 = genDepRess accDEs1
+
+||| "data ADepCmdRes
+|||    = Res2
+|||    | Res1"
+covering
+testGenDepRess2 : String
+testGenDepRess2 = genDepRess accDEs2
+
+||| "data ADepCmdRes
+|||    = Res3 (Arg3_1) ((Arg3_1), (Arg3_2))
+|||    | Res2 (Arg2_1)
+|||    | Res1"
+covering
+testGenDepRess3 : String
+testGenDepRess3 = genDepRess accDEs3
 
