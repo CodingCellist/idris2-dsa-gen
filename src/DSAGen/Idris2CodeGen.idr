@@ -12,6 +12,10 @@ import Data.String
 -- HELPERS
 --------------------------------------------------------------------------------
 
+---------------
+-- Constants --
+---------------
+
 ||| The number of spaces to a tab in the CG.d output.
 tabWidth : Nat
 tabWidth = 2
@@ -115,6 +119,22 @@ accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
 -- TODO (or is it?)
 initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
 
+
+-----------------
+-- Misc. utils --
+-----------------
+
+
+||| If the given string starts with an open-parenthesis, then removes the first
+||| and last character of the string (i.e. de-parenthesises it).
+|||
+||| This is because data constructor declarations in Idris may not be
+||| parenthesised
+cleanDataConsDecl : (rawDCD : String) -> String
+cleanDataConsDecl rawDCD =
+  case asList rawDCD of
+       ('(' :: rest) => substr 1 (minus (length rawDCD) 2) rawDCD
+       _ => rawDCD
 
 --------------------------------------------------------------------------------
 -- INTERFACES --
@@ -300,27 +320,20 @@ genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
 ||| Generate the data-type which contains the results the given dependent
 ||| command may return.
 |||
-||| @ completeDE The complete dependent command, i.e. the record containing the
+||| @ completeDC The complete dependent command, i.e. the record containing the
 |||              accumulated possible cases and destinations, as well as the
 |||              command name and `from` state.
 covering
-genDepRess : (completeDE : DepCmdAcc) -> String
-genDepRess completeDE =
+genDepRess : (completeDC : DepCmdAcc) -> String
+genDepRess completeDC =
   resTyDecl ++ resTyConss
   where
     depResName : DepArg -> String
     depResName (DepsOn val) = genValue val
 
-    -- data constructor declarations in Idris may not be parenthesised
-    cleanDataConsDecl : (rawDCD : String) -> String
-    cleanDataConsDecl rawDCD =
-      case asList rawDCD of
-           ('(' :: rest) => substr 1 (minus (length rawDCD) 2) rawDCD
-           _ => rawDCD
-
     -- the start of the result data-type declaration
     resTyDecl : String
-    resTyDecl = "data \{completeDE.cmd}Res" ++ "\n" ++ indent tabWidth "= "
+    resTyDecl = "data \{completeDC.cmd}Res" ++ "\n" ++ indent tabWidth "= "
 
     -- the string form of the dependent cases
     caseNames : List1 DepRes -> List1 String
@@ -328,7 +341,34 @@ genDepRess completeDE =
 
     -- the constructors of the result data-type
     resTyConss : String
-    resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDE.cases
+    resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDC.cases
+
+||| Generate the `case` expression which represents the transition function of
+||| the given dependent command.
+|||
+||| @ completeDC The entire dependent command.
+covering
+genDepCmdCaseExpr : (completeDC : DepCmdAcc) -> String
+genDepCmdCaseExpr (MkDCAcc _ _ cases) =
+  "(\\case " ++ joinBy "; " (toList $ map genCase cases) ++ ")"
+  where
+    -- the LHS (i.e. pattern) of the case expression
+    genCaseLHS : DepArg -> String
+    genCaseLHS (DepsOn val) = genValue val
+
+    -- the RHS (i.e. destination state) of the case-match
+    genCaseRHS : Subset Value IsDataVal -> String
+    genCaseRHS depDest = genValue depDest.fst
+
+    genCase : DepRes -> String
+    genCase dr = "\{genCaseLHS dr.depCase} => \{genCaseRHS dr.caseTo}"
+
+||| Generate the data constructor representing the depedent command in a DSA.
+|||
+||| @ dsaName The name of the DSA in which the depedent command occurs.
+||| @ completeDC The entire dependent command.
+genDepCmdBody : (dsaName : String) -> (completeDC : DepCmdAcc) -> String
+-- TODO: RESUME HERE!!!
 
 -----------------------
 -- Universal Edge CG --
@@ -740,7 +780,7 @@ accDEs3 = accDEs $ de1 ::: [de2, de3]
 |||  }"
 covering
 testAccDEs3 : String
-testAccDEs3 = show accDEs3 
+testAccDEs3 = show accDEs3
 
 ------------------------------
 -- Dep-edge result code-gen --
@@ -766,4 +806,23 @@ testGenDepRess2 = genDepRess accDEs2
 covering
 testGenDepRess3 : String
 testGenDepRess3 = genDepRess accDEs3
+
+-------------------------------
+-- Dep-edge case-fn code-gen --
+-------------------------------
+
+||| "(\\case (Res1) => (ToState1))"
+covering
+testGenDepCmdCaseExpr1 : String
+testGenDepCmdCaseExpr1 = genDepCmdCaseExpr accDEs1
+
+||| "(\\case (Res2) => (ToState2); (Res1) => (ToState1))"
+covering
+testGenDepCmdCaseExpr2 : String
+testGenDepCmdCaseExpr2 = genDepCmdCaseExpr accDEs2
+
+||| "(\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
+covering
+testGenDepCmdCaseExpr3 : String
+testGenDepCmdCaseExpr3 = genDepCmdCaseExpr accDEs3
 
