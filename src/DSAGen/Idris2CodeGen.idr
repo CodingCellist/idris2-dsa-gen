@@ -12,6 +12,10 @@ import Data.String
 -- HELPERS
 --------------------------------------------------------------------------------
 
+||| The number of spaces to a tab in the CG.d output.
+tabWidth : Nat
+tabWidth = 2
+
 ------------------------
 -- Proofs/Constraints --
 ------------------------
@@ -108,7 +112,26 @@ accDEs : (des : List1 (Subset DSAEdge IsDepEdge)) -> DepCmdAcc
 accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
   foldl addDECase (initDEAcc head) tail
 
+-- TODO (or is it?)
 initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
+
+
+--------------------------------------------------------------------------------
+-- INTERFACES --
+--------------------------------------------------------------------------------
+
+export
+covering
+Show DepRes where
+  show dr =
+    "{ DepRes " ++ show dr.depCase ++ " " ++ show dr.caseTo ++ " }"
+
+export
+covering
+Show DepCmdAcc where
+  show dca =
+    "{ DepCmdAcc " ++ (joinBy " " $ [show dca.cmd, show dca.from, show dca.cases]) ++ " }"
+
 
 --------------------------------------------------------------------------------
 -- CODE GEN
@@ -574,4 +597,89 @@ testGenTPEdge2 =
 
     tpEdge : DSAEdge
     tpEdge = MkDSAEdge (TPCmd cmd takes returns) from to
+
+--------------------
+-- Dep-edge acc.n --
+--------------------
+
+covering
+testAccDEs1 : String
+testAccDEs1 =
+  show $ accDEs $ de1 ::: []
+  where
+    da1 : DepArg
+    da1 = DepsOn (DataVal "Res1" Nothing)
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "FromState" Nothing) ItIsDataVal
+
+    to1 : Subset Value IsDataVal
+    to1 = Element (DataVal "ToState1" Nothing) ItIsDataVal
+
+    de1 : Subset DSAEdge IsDepEdge
+    de1 = Element (MkDSAEdge (DepCmd "ADepCmd" da1) from to1) ItIsDepEdge
+
+covering
+testAccDEs2 : String
+testAccDEs2 =
+  show $ accDEs $ de1 ::: [de2]
+  where
+    da1 : DepArg
+    da1 = DepsOn (DataVal "Res1" Nothing)
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "FromState" Nothing) ItIsDataVal
+
+    to1 : Subset Value IsDataVal
+    to1 = Element (DataVal "ToState1" Nothing) ItIsDataVal
+
+    de1 : Subset DSAEdge IsDepEdge
+    de1 = Element (MkDSAEdge (DepCmd "DepCmd1" da1) from to1) ItIsDepEdge
+
+    da2 : DepArg
+    da2 = DepsOn (DataVal "Res2" Nothing)
+
+    to2 : Subset Value IsDataVal
+    to2 = Element (DataVal "ToState2" Nothing) ItIsDataVal
+
+    de2 : Subset DSAEdge IsDepEdge
+    de2 = Element (MkDSAEdge (DepCmd "ADepCmd" da2) from to2) ItIsDepEdge
+
+covering
+testAccDEs3 : String
+testAccDEs3 =
+  show $ accDEs $ de1 ::: [de2, de3]
+  where
+    da1 : DepArg
+    da1 = DepsOn (DataVal "Res1" Nothing)
+
+    from : Subset Value IsDataVal
+    from = Element (DataVal "FromState" Nothing) ItIsDataVal
+
+    to1 : Subset Value IsDataVal
+    to1 = Element (DataVal "ToState1" Nothing) ItIsDataVal
+
+    de1 : Subset DSAEdge IsDepEdge
+    de1 = Element (MkDSAEdge (DepCmd "DepCmd1" da1) from to1) ItIsDepEdge
+
+    da2 : DepArg
+    da2 = DepsOn (DataVal "Res2" (Just $ (DataVal "Arg2_1" Nothing) ::: []))
+
+    to2 : Subset Value IsDataVal
+    to2 = Element (DataVal "ToState2" Nothing) ItIsDataVal
+
+    de2 : Subset DSAEdge IsDepEdge
+    de2 = Element (MkDSAEdge (DepCmd "ADepCmd" da2) from to2) ItIsDepEdge
+
+    da3Args : List1 Value
+    da3Args = (DataVal "Arg3_1" Nothing) ::: [AddExpr (LitVal 1) (DataVal "Arg3_1" Nothing)]
+
+    da3 : DepArg
+    da3 = DepsOn (DataVal "Res3" (Just da3Args))
+
+    to3 : Subset Value IsDataVal
+    to3 = Element (DataVal "ToState3" (Just $ (DataVal "ts3_1" Nothing) ::: [])) ItIsDataVal
+
+    de3 : Subset DSAEdge IsDepEdge
+    de3 = Element (MkDSAEdge (DepCmd "ADepCmd" da3) from to3) ItIsDepEdge
 
