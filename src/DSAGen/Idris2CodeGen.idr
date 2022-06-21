@@ -5,8 +5,9 @@ import DSAGen.Parser
 
 import Data.DPair
 import Data.String
+import Data.List.Quantifiers
 
-%default total
+%default covering
 
 --------------------------------------------------------------------------------
 -- HELPERS
@@ -94,6 +95,7 @@ record DPCmdAcc where
 ---------------------------
 
 ||| Initialise the dependent edge accumulator using the given dependent edge.
+total
 initDEAcc :  (iDepEdge : Subset DSAEdge IsDepEdge)
           -> DepCmdAcc
 initDEAcc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
@@ -103,6 +105,7 @@ initDEAcc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
 |||
 ||| @ acc The dependent edge accumulator.
 ||| @ depEdge The edge whose case-dest pair to add.
+total
 addDECase :  (acc : DepCmdAcc)
           -> (depEdge : Subset DSAEdge IsDepEdge)
           -> DepCmdAcc
@@ -112,6 +115,7 @@ addDECase acc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
 
 ||| Accumulate the list of dependent edges into a single data-structure keeping
 ||| track of the dependent results.
+total
 accDEs : (des : List1 (Subset DSAEdge IsDepEdge)) -> DepCmdAcc
 accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
   foldl addDECase (initDEAcc head) tail
@@ -130,6 +134,7 @@ initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
 |||
 ||| This is because data constructor declarations in Idris may not be
 ||| parenthesised
+total
 cleanDataConsDecl : (rawDCD : String) -> String
 cleanDataConsDecl rawDCD =
   case asList rawDCD of
@@ -162,15 +167,18 @@ Show DepCmdAcc where
 ------------------------
 
 ||| No result is defined as Unit.
+total
 noRes : String
 noRes = "()"
 
 ||| Pure is always defined for DSAs in the same way.
+total
 pure : (dsaName : String) -> String
 pure dsaName =
   "Pure : (res : resTy) -> \{dsaName}Cmd resTy (state_fn res) state_fn"
 
 ||| Bind (>>=) is always defined for DSAs in the same way.
+total
 bind : (dsaName : String) -> String
 bind dsaName =
   "(>>=) :  \{dsaName}Cmd resTy state_1 state2_fn\n" ++
@@ -183,6 +191,7 @@ bind dsaName =
 ------------------------
 
 ||| The data type for DSA states is based on the DSA's name.
+total
 stateType : (dsaName : String) -> String
 stateType dsaName =
   "data \{dsaName}State : Type where"
@@ -190,16 +199,19 @@ stateType dsaName =
 ||| The data type for DSA commands is based on the DSA's name and carries the
 ||| result type, the current state, and a function from the result type to the
 ||| next state.
+total
 cmdType : (dsaName : String) -> String
 cmdType dsaName =
   "data \{dsaName}Cmd : (resTy : Type) -> \{dsaName}State -> (resTy -> \{dsaName}State) -> Type where"
 
 
 ||| The barebones command type string
+total
 commandTy : (dsaName : String) -> String
 commandTy dsaName = "\{dsaName}Cmd"
 
 ||| The barebones state type string
+total
 stateTy : (dsaName : String) -> String
 stateTy dsaName = "\{dsaName}State"
 
@@ -216,7 +228,6 @@ stateTy dsaName = "\{dsaName}State"
 |||   - a data constructor, optionally taking some values as arguments
 |||   - the addition of two values
 |||   - a tuple of values
-covering
 genValue : Value -> String
 -- ez
 genValue (IdrName n) = n
@@ -237,7 +248,6 @@ genValue (Tuple fst snd) = "(\{genValue fst}, \{genValue snd})"
 ||| A data value is a data constructor, optionally taking some arguments.
 |||
 ||| @ dcTy a string representing the return type of the data constructor
-covering
 genDataConsDecl : (dcTy : String) -> Subset Value IsDataVal -> String
 genDataConsDecl dcTy (Element (DataVal dc Nothing) isDV) = "\{dc} : \{dcTy}"
 genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
@@ -254,7 +264,6 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the plain command.
-covering
 genPlainEdge : (dsaName : String) -> (edge : Subset DSAEdge IsPlainEdge) -> String
 genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
   let cmdStart = commandTy dsaName
@@ -268,7 +277,6 @@ genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take command
-covering
 genTakeEdge :  (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsTakeEdge edge}
@@ -286,7 +294,6 @@ genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the prod command
-covering
 genProdEdge :  (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsProdEdge edge}
@@ -304,7 +311,6 @@ genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
 |||
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take-prod command.
-covering
 genTPEdge :  (dsaName : String)
           -> (edge : DSAEdge)
           -> {auto 0 constraint : IsTPEdge edge}
@@ -323,7 +329,6 @@ genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
 ||| @ completeDC The complete dependent command, i.e. the record containing the
 |||              accumulated possible cases and destinations, as well as the
 |||              command name and `from` state.
-covering
 genDepRess : (completeDC : DepCmdAcc) -> String
 genDepRess completeDC =
   resTyDecl ++ resTyConss
@@ -347,7 +352,6 @@ genDepRess completeDC =
 ||| the given dependent command.
 |||
 ||| @ completeDC The entire dependent command.
-covering
 genDepCmdCaseExpr : (completeDC : DepCmdAcc) -> String
 genDepCmdCaseExpr (MkDCAcc _ _ cases) =
   "(\\case " ++ joinBy "; " (toList $ map genCase cases) ++ ")"
@@ -367,7 +371,6 @@ genDepCmdCaseExpr (MkDCAcc _ _ cases) =
 |||
 ||| @ dsaName The name of the DSA in which the depedent command occurs.
 ||| @ completeDC The entire dependent command.
-covering
 genDepCmdBody : (dsaName : String) -> (completeDC : DepCmdAcc) -> String
 genDepCmdBody dsaName completeDC =
   "\{completeDC.cmd} : \{cmdStart} \{resTy} \{fromState} \{toCaseFn}"
@@ -393,7 +396,6 @@ genDepCmdBody dsaName completeDC =
 
 ||| A universal edge can be taken from anywhere in the DSA, and so does not name
 ||| a specific state in its command definition.
-covering
 genUniversalEdge : (dsaName : String) -> (ue : UniversalEdge) -> String
 genUniversalEdge dsaName (MkUniversalEdge
                          (Element (PlainCmd cmd) isPlain)
@@ -426,19 +428,16 @@ toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
 -------------------------
 
 ||| "Test : ATMCmd"
-covering
 testGenDataCons1 : String
 testGenDataCons1 =
   genDataConsDecl "ATMCmd" (Element (DataVal "Test" Nothing) ItIsDataVal)
 
 ||| "Test : sn -> ATMCmd"
-covering
 testGenDataCons2 : String
 testGenDataCons2 =
   genDataConsDecl "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: []))) ItIsDataVal)
 
 ||| "Test : sn -> (sn + 1) -> ATMCmd"
-covering
 testGenDataCons3 : String
 testGenDataCons3 =
   genDataConsDecl "ATMCmd" (Element (DataVal "Test" (Just ((IdrName "sn") ::: [AddExpr (IdrName "sn") (LitVal 1)]))) ItIsDataVal)
@@ -449,7 +448,6 @@ testGenDataCons3 =
 ------------
 
 ||| "UETest : ATMCmd () anyState (const Ready)"
-covering
 testGenUE1 : String
 testGenUE1 =
   let cmd : Subset DSALabel IsPlainCmd
@@ -459,7 +457,6 @@ testGenUE1 =
   in genUniversalEdge "ATM" (MkUniversalEdge cmd dest)
 
 ||| "UETest : ATMCmd () anyState (const (Ready a b))"
-covering
 testGenUE2 : String
 testGenUE2 =
   let cmd : Subset DSALabel IsPlainCmd
@@ -473,7 +470,6 @@ testGenUE2 =
 --------------------
 
 ||| "EjectCard : ATMCmd () Session (const Ready)
-covering
 testGenPlainEdge1 : String
 testGenPlainEdge1 =
   genPlainEdge "ATM" edge
@@ -491,7 +487,6 @@ testGenPlainEdge1 =
       edge = Element (MkDSAEdge cmd from to) EdgeIsPlain
 
 ||| "EjectCard : ATMCmd () (Session (c, d)) (const (Ready a (b + 2)))
-covering
 testGenPlainEdge2 : String
 testGenPlainEdge2 =
   genPlainEdge "ATM" edge
@@ -519,7 +514,6 @@ testGenPlainEdge2 =
 -------------------
 
 ||| "CheckPIN : PIN -> ATMCmd () CardInserted (const Session)"
-covering
 testGenTakeEdge1 : String
 testGenTakeEdge1 =
   genTakeEdge "ATM" edge
@@ -540,7 +534,6 @@ testGenTakeEdge1 =
     edge = MkDSAEdge (TakeCmd cmd arg) from to
 
 ||| "CheckPIN : (PIN, (1 + n)) -> ATMCmd () (CardInserted (c, d)) (const (Session a (b + 2)))"
-covering
 testGenTakeEdge2 : String
 testGenTakeEdge2 =
   genTakeEdge "ATM" edge
@@ -571,7 +564,6 @@ testGenTakeEdge2 =
 -------------------
 
 ||| "CheckPIN : ATMCmd (PINCheck) CardInserted (const Session)"
-covering
 testGenProdEdge1 : String
 testGenProdEdge1 =
   genProdEdge "ATM" edge
@@ -592,7 +584,6 @@ testGenProdEdge1 =
     edge = MkDSAEdge (ProdCmd cmd res) from to
 
 ||| "CheckPIN : ATMCmd ((PINCheck pin), sTok) (CardInserted (c, (1 + d))) (const (Session sTok))"
-covering
 testGenProdEdge2 : String
 testGenProdEdge2 =
   genProdEdge "ATM" edge
@@ -627,7 +618,6 @@ testGenProdEdge2 =
 ------------------------
 
 ||| "CheckPIN : (PIN) -> ATMCmd (PINCheck) (CardInserted) (const (Session))"
-covering
 testGenTPEdge1 : String
 testGenTPEdge1 =
   genTPEdge "ATM" tpEdge
@@ -651,7 +641,6 @@ testGenTPEdge1 =
     tpEdge = MkDSAEdge (TPCmd cmd takes returns) from to
 
 ||| "Send : (SeqNo sn) -> ARQCmd ((SeqNo sn), (csn + 1)) (Ready sn csn) (const (Waiting sn (csn + 1)))"
-covering
 testGenTPEdge2 : String
 testGenTPEdge2 =
   genTPEdge "ARQ" tpEdge
@@ -692,7 +681,6 @@ testGenTPEdge2 =
 -- Dep-edge accumulation --
 ---------------------------
 
-covering
 accDEs1 : DepCmdAcc
 accDEs1 = accDEs $ singleton de1
   where
@@ -712,11 +700,9 @@ accDEs1 = accDEs $ singleton de1
 |||              Element (DataVal FromState) _
 |||              [{ DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }]
 |||  }"
-covering
 testAccDEs1 : String
 testAccDEs1 = show accDEs1
 
-covering
 accDEs2 : DepCmdAcc
 accDEs2 = accDEs $ de1 ::: [de2]
   where
@@ -747,11 +733,9 @@ accDEs2 = accDEs $ de1 ::: [de2]
 |||              , { DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }
 |||              ]
 |||  }"
-covering
 testAccDEs2 : String
 testAccDEs2 = show accDEs2
 
-covering
 accDEs3 : DepCmdAcc
 accDEs3 = accDEs $ de1 ::: [de2, de3]
   where
@@ -795,7 +779,6 @@ accDEs3 = accDEs $ de1 ::: [de2, de3]
 |||             , { DepRes (DepsOn (DataVal Res1)) Element (DataVal ToState1) _ }
 |||             ]
 |||  }"
-covering
 testAccDEs3 : String
 testAccDEs3 = show accDEs3
 
@@ -805,14 +788,12 @@ testAccDEs3 = show accDEs3
 
 ||| "data ADepCmdRes
 |||    = Res1"
-covering
 testGenDepRess1 : String
 testGenDepRess1 = genDepRess accDEs1
 
 ||| "data ADepCmdRes
 |||    = Res2
 |||    | Res1"
-covering
 testGenDepRess2 : String
 testGenDepRess2 = genDepRess accDEs2
 
@@ -820,7 +801,6 @@ testGenDepRess2 = genDepRess accDEs2
 |||    = Res3 (Arg3_1) ((Arg3_1), (Arg3_2))
 |||    | Res2 (Arg2_1)
 |||    | Res1"
-covering
 testGenDepRess3 : String
 testGenDepRess3 = genDepRess accDEs3
 
@@ -829,17 +809,14 @@ testGenDepRess3 = genDepRess accDEs3
 --------------------------
 
 ||| "(\\case (Res1) => (ToState1))"
-covering
 testGenDepCmdCaseExpr1 : String
 testGenDepCmdCaseExpr1 = genDepCmdCaseExpr accDEs1
 
 ||| "(\\case (Res2) => (ToState2); (Res1) => (ToState1))"
-covering
 testGenDepCmdCaseExpr2 : String
 testGenDepCmdCaseExpr2 = genDepCmdCaseExpr accDEs2
 
 ||| "(\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
-covering
 testGenDepCmdCaseExpr3 : String
 testGenDepCmdCaseExpr3 = genDepCmdCaseExpr accDEs3
 
