@@ -46,6 +46,16 @@ data IsDPEdge : DSAEdge -> Type where
 data IsTDPEdge : DSAEdge -> Type where
   ItIsTDPEdge : IsTDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)
 
+||| A proof that a DSA-edge does not involve a dependent state change, i.e. is
+||| one of:
+|||   - a ProdCmd
+|||   - a TakeCmd
+|||   - a TPCmd (take-prod)
+data IsNonDepEdge : DSAEdge -> Type where
+  ItIsProd : IsNonDepEdge (MkDSAEdge (ProdCmd _ _) _ _)
+  ItIsTake : IsNonDepEdge (MkDSAEdge (TakeCmd _ _) _ _)
+  ItIsTP   : IsNonDepEdge (MkDSAEdge (TPCmd _ _ _) _ _)
+
 ----------------
 -- Data types --
 ----------------
@@ -421,6 +431,17 @@ genUniversalEdge dsaName (MkUniversalEdge
 genEdges :  (dsaName : String)
          -> (edges : Split IsPlainEdge allEdges)
          -> String
+genEdges dsaName edges =
+  plainEdgeDefs ++ ?genEdges_rhs
+  where
+    -- we need to show `genPlainEdge` that the edge is indeed plain
+    plainEdges : List (Subset DSAEdge IsPlainEdge)
+    plainEdges = pushIn edges.ayes edges.prfs
+
+    -- all the plain edge definitions, indented and line-separated
+    plainEdgeDefs : String
+    plainEdgeDefs =
+      joinBy "\n" $ map (indent tabWidth) (genPlainEdge dsaName <$> plainEdges)
 
 --------------
 -- State CG --
