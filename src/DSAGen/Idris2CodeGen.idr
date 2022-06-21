@@ -405,6 +405,23 @@ genUniversalEdge dsaName (MkUniversalEdge
       destState = genValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
+-------------
+-- Edge CG --
+-------------
+
+||| Generate the data-types associated with the edges of the DSA.
+|||
+||| This includes:
+|||   - plain edges
+|||   - prod, take, and prod-take edges
+|||   - dependent edges (and their combinations)
+|||
+||| @ dsaName The name of the DSA that the edges are part of.
+||| @ edges The split of all the edges
+genEdges :  (dsaName : String)
+         -> (edges : Split IsPlainEdge allEdges)
+         -> String
+
 --------------
 -- State CG --
 --------------
@@ -444,7 +461,7 @@ export
 toIdris2 : DSAv2 -> String
 toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
-      edges = ?genEdges dsaName edges
+      edges = genEdges dsaName edges
       ues = map (genUniversalEdge dsaName) universalEdges
   in ?toIdris_rhs_0
 
