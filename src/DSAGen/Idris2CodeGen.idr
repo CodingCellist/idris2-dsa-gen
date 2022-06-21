@@ -405,6 +405,36 @@ genUniversalEdge dsaName (MkUniversalEdge
       destState = genValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
+--------------
+-- State CG --
+--------------
+
+-- adapted from `genDepRess`
+||| Generate the data-type which contains the states of the DSA
+||| command may return.
+|||
+||| @ completeDC The complete dependent command, i.e. the record containing the
+|||              accumulated possible cases and destinations, as well as the
+|||              command name and `from` state.
+genStates :  (dsaName : String)
+          -> (states : Subset (List Value) (All IsDataVal))
+          -> String
+genStates dsaName states =
+  stateTyDecl ++ stateTyConss
+  where
+    -- the start of the state data-type declaration
+    stateTyDecl : String
+    stateTyDecl = "data \{dsaName}State" ++ "\n" ++ indent tabWidth "= "
+
+    -- the string form of the states
+    stateNames : List Value -> List String
+    stateNames =
+      map (cleanDataConsDecl . genValue)
+
+    -- the constructors of the result data-type
+    stateTyConss : String
+    stateTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ stateNames states.fst
+
 -----------------------
 -- Generating Idris2 --
 -----------------------
@@ -413,7 +443,7 @@ genUniversalEdge dsaName (MkUniversalEdge
 export
 toIdris2 : DSAv2 -> String
 toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
-  let states = ?genStates dsaName states
+  let states = genStates dsaName states
       edges = ?genEdges dsaName edges
       ues = map (genUniversalEdge dsaName) universalEdges
   in ?toIdris_rhs_0
@@ -835,4 +865,55 @@ testGenDepCmdBody2 = genDepCmdBody "TestDSA" accDEs2
 ||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
 testGenDepCmdBody3 : String
 testGenDepCmdBody3 = genDepCmdBody "TestDSA" accDEs3
+
+---------------
+-- State gen --
+---------------
+
+states1 : Subset (List Value) (All IsDataVal)
+states1 = Element [ DataVal "State1" Nothing
+                  , DataVal "State2" Nothing
+                  ]
+                  %search
+
+||| "data TestDSAState
+|||    = State1
+|||    | State2"
+testGenStates1 : String
+testGenStates1 = genStates "TestDSA" states1
+
+states2 : Subset (List Value) (All IsDataVal)
+states2 = Element [ DataVal "State1" Nothing
+                  , DataVal "State2" (Just $ singleton (DataVal "Nat" Nothing))
+                  ]
+                  %search
+
+||| "data TestDSAState
+|||    = State1
+|||    | State2 (Nat)"
+testGenStates2 : String
+testGenStates2 = genStates "TestDSA" states2
+
+states3 : Subset (List Value) (All IsDataVal)
+states3 = Element [ DataVal "State1" Nothing
+                  , s2
+                  , s3
+                  ]
+                  %search
+  where
+    s2 : Value
+    s2 = DataVal "State2" (Just $ singleton (DataVal "Nat" Nothing))
+
+    seqNoTy : Value
+    seqNoTy = DataVal "SeqNo" (Just $ singleton (IdrName "sn"))
+
+    s3 : Value
+    s3 = DataVal "State3" (Just $ (Tuple (DataVal "Type" Nothing) seqNoTy) ::: [DataVal "Nat" Nothing])
+
+||| "data TestDSAState
+|||    = State1
+|||    | State2 Nat
+|||    | State3 (Type, (SeqNo sn)) Nat"
+testGenStates3 : String
+testGenStates3 = genStates "TestDSA" states3
 
