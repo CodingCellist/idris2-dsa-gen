@@ -281,6 +281,23 @@ genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
       toState = genValue to.fst
   in "\{cmd} : \{cmdStart} \{noRes} \{fromState} (const \{toState})"
 
+||| Generate all the plain edge definitions in the DSA, properly indented and
+||| line-separated.
+|||
+||| @ dsaName The name of the DSA that the plain edges belong to.
+||| @ plainEdges The edges which are definitely plain.
+||| @ edgesArePlain A proof that the edges are plain.
+genPlainEdges :  (dsaName : String)
+              -> (plainEdges : List DSAEdge)
+              -> (0 edgesArePlain : All IsPlainEdge plainEdges)
+              -> String
+genPlainEdges dsaName plainEdges edgesArePlain =
+  joinBy "\n" $ map (indent tabWidth) (genPlainEdge dsaName <$> plainEdgeSubsets)
+  where
+    -- we need to bundle the proofs for `genPlainEdge`
+    plainEdgeSubsets : List (Subset DSAEdge IsPlainEdge)
+    plainEdgeSubsets = pushIn plainEdges edgesArePlain
+
 ||| A command which takes a value is a function from the argument to a
 ||| constructor which produces nothing and goes to a constant state (or it would
 ||| be a take-dep command).
@@ -434,14 +451,9 @@ genEdges :  (dsaName : String)
 genEdges dsaName edges =
   plainEdgeDefs ++ ?genEdges_rhs
   where
-    -- we need to show `genPlainEdge` that the edge is indeed plain
-    plainEdges : List (Subset DSAEdge IsPlainEdge)
-    plainEdges = pushIn edges.ayes edges.prfs
-
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
-    plainEdgeDefs =
-      joinBy "\n" $ map (indent tabWidth) (genPlainEdge dsaName <$> plainEdges)
+    plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
 
 --------------
 -- State CG --
