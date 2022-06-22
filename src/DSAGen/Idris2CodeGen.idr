@@ -2,6 +2,7 @@ module DSAGen.Idris2CodeGen
 
 import DSAGen.DSLv2
 import DSAGen.Parser
+import DSAGen.Constraints
 
 import Data.DPair
 import Data.String
@@ -20,41 +21,6 @@ import Data.List.Quantifiers
 ||| The number of spaces to a tab in the CG.d output.
 tabWidth : Nat
 tabWidth = 2
-
-------------------------
--- Proofs/Constraints --
-------------------------
-
-data IsTakeEdge : DSAEdge -> Type where
-  ItIsTakeEdge : IsTakeEdge (MkDSAEdge (TakeCmd _ _) _ _)
-
-data IsDepEdge : DSAEdge -> Type where
-  ItIsDepEdge : IsDepEdge (MkDSAEdge (DepCmd _ _) _ _)
-
-data IsProdEdge : DSAEdge -> Type where
-  ItIsProdEdge : IsProdEdge (MkDSAEdge (ProdCmd _ _) _ _)
-
-data IsTDEdge : DSAEdge -> Type where
-  ItIsTDEdge : IsTDEdge (MkDSAEdge (TDCmd _ _ _) _ _)
-
-data IsTPEdge : DSAEdge -> Type where
-  ItIsTPEdge : IsTPEdge (MkDSAEdge (TPCmd _ _ _) _ _)
-
-data IsDPEdge : DSAEdge -> Type where
-  ItIsDPEdge : IsDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)
-
-data IsTDPEdge : DSAEdge -> Type where
-  ItIsTDPEdge : IsTDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)
-
-||| A proof that a DSA-edge does not involve a dependent state change, i.e. is
-||| one of:
-|||   - a ProdCmd
-|||   - a TakeCmd
-|||   - a TPCmd (take-prod)
-data IsNonDepEdge : DSAEdge -> Type where
-  ItIsProd : IsNonDepEdge (MkDSAEdge (ProdCmd _ _) _ _)
-  ItIsTake : IsNonDepEdge (MkDSAEdge (TakeCmd _ _) _ _)
-  ItIsTP   : IsNonDepEdge (MkDSAEdge (TPCmd _ _ _) _ _)
 
 ----------------
 -- Data types --
@@ -133,6 +99,16 @@ accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
 -- TODO (or is it?)
 initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
 
+subsetFilter : ((x : a) -> Dec (p x)) -> (xs : List a) -> List (Subset a p)
+subsetFilter f [] = []
+subsetFilter f (x :: xs) with (f x)
+  _ | (Yes prf) = (Element x prf) :: subsetFilter f xs
+  _ | (No contra) = subsetFilter f xs
+
+extractDepEdges :  (spl : Split IsNonDepEdge nonPlainEs)
+                -> List (Subset DSAEdge IsDepEdge)
+extractDepEdges (MkSplit {naws} _ contras) =
+  subsetFilter isDepEdge naws
 
 -----------------
 -- Misc. utils --
@@ -454,6 +430,10 @@ genEdges dsaName edges =
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
     plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
+
+    -- all the non-dependent edge definitions, indented and line-separated
+    nonDepEdgeDefs : String
+    nonDepEdgeDefs = ?nonDepEdgeDefs_rhs (split isItNonDepEdge edges.naws)
 
 --------------
 -- State CG --
