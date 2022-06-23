@@ -431,9 +431,12 @@ genEdges dsaName edges =
     plainEdgeDefs : String
     plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
 
-    -- all the non-dependent edge definitions, indented and line-separated
-    nonDepEdgeDefs : String
-    nonDepEdgeDefs = ?nonDepEdgeDefs_rhs (split isItNonDepEdge edges.naws)
+    --- depsAndNonDeps : Split IsNonDepEdge ?
+    --- depsAndNonDeps = split isNonDepEdge edges.naws
+
+    --- -- all the non-dependent edge definitions, indented and line-separated
+    --- nonDepEdgeDefs : String
+    --- nonDepEdgeDefs = ?nonDepEdgeDefs_rhs (split isNonDepEdge edges.naws)
 
 --------------
 -- State CG --

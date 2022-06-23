@@ -8,6 +8,8 @@ import DSAGen.Parser.Label
 
 import Data.DPair
 
+%default total
+
 --------------------------------------------------------------------------------
 -- CONSTRAINTS
 --------------------------------------------------------------------------------
@@ -102,9 +104,6 @@ Uninhabited (IsProdEdge (MkDSAEdge (TakeCmd _ _) _ _)) where
 public export
 Uninhabited (IsProdEdge (MkDSAEdge (DepCmd _ _) _ _)) where
   uninhabited ItIsProdEdge impossible
-public export
-Uninhabited (IsProdEdge (MkDSAEdge (ProdCmd _ _) _ _)) where
-  uninhabited ItIsProdEdge = ?rhs_51
 public export
 Uninhabited (IsProdEdge (MkDSAEdge (TDCmd _ _ _) _ _)) where
   uninhabited ItIsProdEdge impossible
@@ -238,6 +237,10 @@ public export
 Uninhabited (IsTDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)) where
   uninhabited ItIsTDPEdge impossible
 
+-----------------------------
+-- Non-depedent edges only --
+-----------------------------
+
 ||| A proof that a DSA-edge does not involve a dependent state change, i.e. is
 ||| one of:
 |||   - a ProdCmd
@@ -277,9 +280,34 @@ Uninhabited (IsNonDepEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
   uninhabited ItIsTake impossible
   uninhabited ItIsTP impossible
 
+--------------------------------------
+-- Non-plain AND non-dependent only --
+--------------------------------------
+
+||| A proof that the given edge is not a dependent edge (i.e. it always goes to
+||| the same state), AND that the edge is not a plain edge (i.e. it _does_ do
+||| something interesting, for example producing a value).
+data NotPlainNotDep : (e : DSAEdge) -> (Not $ IsPlainEdge e) -> Type where
+  IsActuallyProd :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (ProdCmd c a) f t))}
+                 -> NotPlainNotDep (MkDSAEdge (ProdCmd c a) f t) constraint 
+  IsActuallyTake :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (TakeCmd c a) f t))}
+                 -> NotPlainNotDep (MkDSAEdge (TakeCmd c a) f t) constraint 
+  IsActuallyTP :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (TPCmd c a v) f t))}
+               -> NotPlainNotDep (MkDSAEdge (TPCmd c a v) f t) constraint 
+
+-- TODO: RESUME HERE!!! Caution: Need to exclude plain edges!
+--       Is the type above (`NotPlainNotDep`) the better way to go?
+
 ||| Prove that the given edge is not a dependent edge, or produce the
 ||| counter-proof for why it must be a dependent edge.
 public export
-isItNonDepEdge : (e : DSAEdge) -> Dec (IsNonDepEdge e)
--- TODO: RESUME HERE!!! Caution: Need to exclude plain edges!
+isNonDepEdge : (e : DSAEdge) -> (0 c : Not $ IsPlainEdge e) -> Dec (IsNonDepEdge e)
+isNonDepEdge (MkDSAEdge (PlainCmd _) _ _) c = void $ c EdgeIsPlain
+isNonDepEdge (MkDSAEdge (TakeCmd cmd arg) from to) c = ?isNonDepEdge_rhs_2
+isNonDepEdge (MkDSAEdge (ProdCmd cmd res) from to) c = ?isNonDepEdge_rhs_4
+isNonDepEdge (MkDSAEdge (TPCmd cmd arg res) from to) c = ?isNonDepEdge_rhs_6
+isNonDepEdge (MkDSAEdge (DepCmd cmd dep) from to) c = ?isNonDepEdge_rhs_3
+isNonDepEdge (MkDSAEdge (TDCmd cmd arg dep) from to) c = ?isNonDepEdge_rhs_5
+isNonDepEdge (MkDSAEdge (DPCmd cmd dep res) from to) c = ?isNonDepEdge_rhs_7
+isNonDepEdge (MkDSAEdge (TDPCmd cmd arg dep res) from to) c = ?isNonDepEdge_rhs_8
 
