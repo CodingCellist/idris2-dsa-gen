@@ -301,25 +301,25 @@ data NotPlainNotDep : (e : DSAEdge) -> (0 nip : Not $ IsPlainEdge e) -> Type whe
 
 
 public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) contra) where
+Uninhabited (NotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) nonPlainPrf) where
   uninhabited IsActuallyProd impossible
   uninhabited IsActuallyTake impossible
   uninhabited IsActuallyTP impossible
 
 public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) contra) where
+Uninhabited (NotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) nonPlainPrf) where
   uninhabited IsActuallyProd impossible
   uninhabited IsActuallyTake impossible
   uninhabited IsActuallyTP impossible
 
 public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) contra) where
+Uninhabited (NotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) nonPlainPrf) where
   uninhabited IsActuallyProd impossible
   uninhabited IsActuallyTake impossible
   uninhabited IsActuallyTP impossible
 
 public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra) where
+Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf) where
   uninhabited IsActuallyProd impossible
   uninhabited IsActuallyTake impossible
   uninhabited IsActuallyTP impossible
@@ -327,30 +327,30 @@ Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra) where
 ||| Second attempt at `NotPlainNonDep`...
 public export
 data NPND2 : Subset DSAEdge (Not . IsPlainEdge) -> Type where
-  ProdNonDep : NPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) absurd)
-  TakeNonDep : NPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) absurd)
-  TPNonDep   : NPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) absurd)
+  ProdNonDep : NPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) nonPlainPrf)
+  TakeNonDep : NPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) nonPlainPrf)
+  TPNonDep   : NPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) nonPlainPrf)
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) contra)) where
+Uninhabited (NPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) contra)) where
+Uninhabited (NPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) contra)) where
+Uninhabited (NPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra)) where
+Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
