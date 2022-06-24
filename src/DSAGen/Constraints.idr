@@ -324,12 +324,40 @@ Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra) where
   uninhabited IsActuallyTake impossible
   uninhabited IsActuallyTP impossible
 
+||| Second attempt at `NotPlainNonDep`...
+public export
+data NPND2 : Subset DSAEdge (Not . IsPlainEdge) -> Type where
+  ProdNonDep : NPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) absurd)
+  TakeNonDep : NPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) absurd)
+  TPNonDep   : NPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) absurd)
+
+public export
+Uninhabited (NPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) contra)) where
+  uninhabited ProdNonDep impossible
+  uninhabited TakeNonDep impossible
+  uninhabited TPNonDep impossible
+
+public export
+Uninhabited (NPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) contra)) where
+  uninhabited ProdNonDep impossible
+  uninhabited TakeNonDep impossible
+  uninhabited TPNonDep impossible
+
+public export
+Uninhabited (NPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) contra)) where
+  uninhabited ProdNonDep impossible
+  uninhabited TakeNonDep impossible
+  uninhabited TPNonDep impossible
+
+public export
+Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra)) where
+  uninhabited ProdNonDep impossible
+  uninhabited TakeNonDep impossible
+  uninhabited TPNonDep impossible
+
 -------------------
 -- Dec functions --
 -------------------
-
--- TODO: RESUME HERE!!! Caution: Need to exclude plain edges!
---       Is the type above (`NotPlainNotDep`) the better way to go?
 
 ||| Prove that the given edge is not a dependent edge, or produce the
 ||| counter-proof for why it must be a dependent edge.
@@ -346,6 +374,8 @@ isNonDepEdge (MkDSAEdge (TDPCmd cmd arg dep res) from to) c = ?isNonDepEdge_rhs_
 
 ||| Prove that the given, non-plain edge is not a dependent edge, or produce the
 ||| counterproof showing that it must be a dependent edge.
+|||
+||| See-also: `NotPlainNotDep`
 public export
 isNotPlainNotDep :  (e : DSAEdge)
                  -> (0 c : Not $ IsPlainEdge e)
@@ -358,4 +388,19 @@ isNotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) c        = No absurd
 isNotPlainNotDep (MkDSAEdge (TakeCmd cmd arg) from to) c   = Yes IsActuallyTake
 isNotPlainNotDep (MkDSAEdge (ProdCmd cmd res) from to) c   = Yes IsActuallyProd
 isNotPlainNotDep (MkDSAEdge (TPCmd cmd arg res) from to) c = Yes IsActuallyTP
+
+||| Same as `isNotPlainNotDep`, but operating on `Subset`s.
+|||
+||| See-also: `isNotPlainNotDep`.
+public export
+isNotPlainNotDepSubset :  (s : Subset DSAEdge (Not . IsPlainEdge))
+                       -> Dec (NotPlainNotDep s.fst s.snd)
+isNotPlainNotDepSubset (Element (MkDSAEdge (PlainCmd _) _ _) snd) = void $ snd EdgeIsPlain
+isNotPlainNotDepSubset (Element (MkDSAEdge (DepCmd _ _) _ _) snd) = No absurd
+isNotPlainNotDepSubset (Element (MkDSAEdge (TDCmd _ _ _) _ _) snd) = No absurd
+isNotPlainNotDepSubset (Element (MkDSAEdge (DPCmd _ _ _) _ _) snd) = No absurd
+isNotPlainNotDepSubset (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) snd) = No absurd
+isNotPlainNotDepSubset (Element (MkDSAEdge (TakeCmd _ _) _ _) snd) = Yes IsActuallyTake
+isNotPlainNotDepSubset (Element (MkDSAEdge (ProdCmd _ _) _ _) snd) = Yes IsActuallyProd
+isNotPlainNotDepSubset (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd) = Yes IsActuallyTP
 
