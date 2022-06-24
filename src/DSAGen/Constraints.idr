@@ -339,3 +339,18 @@ isNonDepEdge (MkDSAEdge (TDCmd cmd arg dep) from to) c = ?isNonDepEdge_rhs_5
 isNonDepEdge (MkDSAEdge (DPCmd cmd dep res) from to) c = ?isNonDepEdge_rhs_7
 isNonDepEdge (MkDSAEdge (TDPCmd cmd arg dep res) from to) c = ?isNonDepEdge_rhs_8
 
+||| Prove that the given, non-plain edge is not a dependent edge, or produce the
+||| counterproof showing that it must be a dependent edge.
+public export
+isNotPlainNotDep :  (e : DSAEdge)
+                 -> (0 c : Not $ IsPlainEdge e)
+                 -> Dec (NotPlainNotDep e c)
+isNotPlainNotDep (MkDSAEdge (PlainCmd _) _ _) c = void $ c EdgeIsPlain
+isNotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) c            = No absurd
+isNotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) c           = No absurd
+isNotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) c           = No absurd
+isNotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) c        = No absurd
+isNotPlainNotDep (MkDSAEdge (TakeCmd cmd arg) from to) c   = Yes IsActuallyTake
+isNotPlainNotDep (MkDSAEdge (ProdCmd cmd res) from to) c   = Yes IsActuallyProd
+isNotPlainNotDep (MkDSAEdge (TPCmd cmd arg res) from to) c = Yes IsActuallyTP
+
