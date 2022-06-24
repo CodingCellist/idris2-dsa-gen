@@ -127,6 +127,12 @@ cleanDataConsDecl rawDCD =
        ('(' :: rest) => substr 1 (minus (length rawDCD) 2) rawDCD
        _ => rawDCD
 
+||| Indent and line-separate each of the strings in the given list, returning
+||| the resulting appended string.
+%inline
+indentAndLineSep : List String -> String
+indentAndLineSep =  joinBy "\n" . map (indent tabWidth)
+
 --------------------------------------------------------------------------------
 -- INTERFACES --
 --------------------------------------------------------------------------------
@@ -268,7 +274,7 @@ genPlainEdges :  (dsaName : String)
               -> (0 edgesArePlain : All IsPlainEdge plainEdges)
               -> String
 genPlainEdges dsaName plainEdges edgesArePlain =
-  joinBy "\n" $ map (indent tabWidth) (genPlainEdge dsaName <$> plainEdgeSubsets)
+  indentAndLineSep $ map (genPlainEdge dsaName) plainEdgeSubsets
   where
     -- we need to bundle the proofs for `genPlainEdge`
     plainEdgeSubsets : List (Subset DSAEdge IsPlainEdge)
@@ -393,6 +399,11 @@ genDepCmdBody dsaName completeDC =
     toCaseFn : String
     toCaseFn = genDepCmdCaseExpr completeDC
 
+||| Generate the data constructor representing a non-plain, non-dependent edge
+||| (i.e. either a Take, Prod, or Take-Prod edge).
+|||
+||| @ dsaName The name of the DSA in which the edge occurs.
+||| @ npndEdge The non-plain, non-dependent edge; along with its proofs.
 genNotPlainNonDepEdge :  (dsaName : String)
                       -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND2)
                       -> String
@@ -406,12 +417,25 @@ genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (DPCmd _ _ _) _ _) _)
   void $ absurd npnd
 genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) _) npnd) =
   void $ absurd npnd
-genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TakeCmd cmd arg) from to) _) _) =
-  ?genNotPlainNonDepEdge_rhs_4
-genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (ProdCmd cmd res) from to) _) _) =
-  ?genNotPlainNonDepEdge_rhs_6
-genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TPCmd cmd arg res) from to) _) _) =
-  ?genNotPlainNonDepEdge_rhs_8
+genNotPlainNonDepEdge dsaName (Element (Element te@(MkDSAEdge (TakeCmd cmd arg) from to) _) _) =
+  genTakeEdge dsaName te
+genNotPlainNonDepEdge dsaName (Element (Element pe@(MkDSAEdge (ProdCmd cmd res) from to) _) _) =
+  genProdEdge dsaName pe
+genNotPlainNonDepEdge dsaName (Element (Element tpe@(MkDSAEdge (TPCmd cmd arg res) from to) _) _) =
+  genTPEdge dsaName tpe
+
+||| Generate all the non-plain, non-dependent edge definitions, properly
+||| indenting and line-separating them along the way.
+|||
+||| @ dsaName The name of the DSA that the edges are part of.
+||| @ npndEs The non-plain, non-dependent edges to generate, along with their
+|||          proofs.
+||| See-also: `genNotPlainNonDepEdge`
+genNotPlainNonDepEdges :  (dsaName : String)
+                       -> (npndEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND2))
+                       -> String
+genNotPlainNonDepEdges dsaName npndEs =
+  indentAndLineSep $ map (genNotPlainNonDepEdge dsaName) npndEs
 
 -----------------------
 -- Universal Edge CG --
@@ -455,8 +479,13 @@ genEdges dsaName edges =
     NawsSubset : List (Subset DSAEdge (Not . IsPlainEdge))
     NawsSubset = pushIn edges.naws edges.contras
 
+    -- the split of non-plain edges, split on whether they're dependent
     npndSplit : Split NPND2 (reverse NawsSubset)
     npndSplit = split isNPND2 NawsSubset
+
+    -- all the non-plain, non-dependent edge definitions, indented etc.
+    npndEdges : String
+    npndEdges = genNotPlainNonDepEdges dsaName $ pushIn npndSplit.ayes npndSplit.prfs
 
 --------------
 -- State CG --
