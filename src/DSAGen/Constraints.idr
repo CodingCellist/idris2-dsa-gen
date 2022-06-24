@@ -287,13 +287,41 @@ Uninhabited (IsNonDepEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
 ||| A proof that the given edge is not a dependent edge (i.e. it always goes to
 ||| the same state), AND that the edge is not a plain edge (i.e. it _does_ do
 ||| something interesting, for example producing a value).
-data NotPlainNotDep : (e : DSAEdge) -> (Not $ IsPlainEdge e) -> Type where
-  IsActuallyProd :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (ProdCmd c a) f t))}
+data NotPlainNotDep : (e : DSAEdge) -> (0 nip : Not $ IsPlainEdge e) -> Type where
+  ||| A production-edge is not a plain edge, but it is also not dependent.
+  IsActuallyProd :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (ProdCmd c a) f t))}
                  -> NotPlainNotDep (MkDSAEdge (ProdCmd c a) f t) constraint 
-  IsActuallyTake :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (TakeCmd c a) f t))}
+  ||| A take-edge is not a plain edge, but it is also not dependent.
+  IsActuallyTake :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (TakeCmd c a) f t))}
                  -> NotPlainNotDep (MkDSAEdge (TakeCmd c a) f t) constraint 
-  IsActuallyTP :  {constraint : (Not $ IsPlainEdge (MkDSAEdge (TPCmd c a v) f t))}
+  ||| A take-produce edge is not a plain edge, but it is also not dependent.
+  IsActuallyTP :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (TPCmd c a v) f t))}
                -> NotPlainNotDep (MkDSAEdge (TPCmd c a v) f t) constraint 
+
+
+Uninhabited (NotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) contra) where
+  uninhabited IsActuallyProd impossible
+  uninhabited IsActuallyTake impossible
+  uninhabited IsActuallyTP impossible
+
+Uninhabited (NotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) contra) where
+  uninhabited IsActuallyProd impossible
+  uninhabited IsActuallyTake impossible
+  uninhabited IsActuallyTP impossible
+
+Uninhabited (NotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) contra) where
+  uninhabited IsActuallyProd impossible
+  uninhabited IsActuallyTake impossible
+  uninhabited IsActuallyTP impossible
+
+Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) contra) where
+  uninhabited IsActuallyProd impossible
+  uninhabited IsActuallyTake impossible
+  uninhabited IsActuallyTP impossible
+
+-------------------
+-- Dec functions --
+-------------------
 
 -- TODO: RESUME HERE!!! Caution: Need to exclude plain edges!
 --       Is the type above (`NotPlainNotDep`) the better way to go?
