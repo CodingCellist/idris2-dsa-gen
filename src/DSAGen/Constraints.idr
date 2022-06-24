@@ -404,3 +404,14 @@ isNotPlainNotDepSubset (Element (MkDSAEdge (TakeCmd _ _) _ _) snd) = Yes IsActua
 isNotPlainNotDepSubset (Element (MkDSAEdge (ProdCmd _ _) _ _) snd) = Yes IsActuallyProd
 isNotPlainNotDepSubset (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd) = Yes IsActuallyTP
 
+public export
+isNPND2 : (s : Subset DSAEdge (Not . IsPlainEdge)) -> Dec (NPND2 s)
+isNPND2 (Element (MkDSAEdge (PlainCmd _) _ _) snd)     = void $ snd EdgeIsPlain
+isNPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) snd)     = No absurd
+isNPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) snd)    = No absurd
+isNPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) snd)    = No absurd
+isNPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) snd) = No absurd
+isNPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) snd)    = Yes TakeNonDep
+isNPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) snd)    = Yes ProdNonDep
+isNPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd)    = Yes TPNonDep
+
