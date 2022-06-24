@@ -476,12 +476,12 @@ genEdges dsaName edges =
     plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
 
     -- all the non-plain edges, paired with their proofs
-    NawsSubset : List (Subset DSAEdge (Not . IsPlainEdge))
-    NawsSubset = pushIn edges.naws edges.contras
+    NotPlainEdges : List (Subset DSAEdge (Not . IsPlainEdge))
+    NotPlainEdges = pushIn edges.naws edges.contras
 
     -- the split of non-plain edges, split on whether they're dependent
-    npndSplit : Split NPND2 (reverse NawsSubset)
-    npndSplit = split isNPND2 NawsSubset
+    npndSplit : Split NPND2 (reverse NotPlainEdges)
+    npndSplit = split isNPND2 NotPlainEdges
 
     -- all the non-plain, non-dependent edge definitions, indented etc.
     npndEdges : String
