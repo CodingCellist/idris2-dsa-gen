@@ -393,6 +393,26 @@ genDepCmdBody dsaName completeDC =
     toCaseFn : String
     toCaseFn = genDepCmdCaseExpr completeDC
 
+genNotPlainNonDepEdge :  (dsaName : String)
+                      -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND2)
+                      -> String
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (PlainCmd _) _ _) np) _) =
+  void $ np EdgeIsPlain
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (DepCmd _ _) _ _) _) npnd) =
+  void $ absurd npnd
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TDCmd _ _ _) _ _) _) npnd) =
+  void $ absurd npnd
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (DPCmd _ _ _) _ _) _) npnd) =
+  void $ absurd npnd
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) _) npnd) =
+  void $ absurd npnd
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TakeCmd cmd arg) from to) _) _) =
+  ?genNotPlainNonDepEdge_rhs_4
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (ProdCmd cmd res) from to) _) _) =
+  ?genNotPlainNonDepEdge_rhs_6
+genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TPCmd cmd arg res) from to) _) _) =
+  ?genNotPlainNonDepEdge_rhs_8
+
 -----------------------
 -- Universal Edge CG --
 -----------------------
@@ -425,18 +445,18 @@ genEdges :  (dsaName : String)
          -> (edges : Split IsPlainEdge allEdges)
          -> String
 genEdges dsaName edges =
-  plainEdgeDefs ++ ?genEdges_rhs
+  plainEdgeDefs ++ ?genEdges_rhs_2
   where
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
     plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
 
     -- all the non-plain edges, paired with their proofs
-    nawsSubset : List (Subset DSAEdge (Not . IsPlainEdge))
-    nawsSubset = pushIn edges.naws edges.contras
+    NawsSubset : List (Subset DSAEdge (Not . IsPlainEdge))
+    NawsSubset = pushIn edges.naws edges.contras
 
-    npndSplit : Split NPND2 ?
-    npndSplit = split isNPND2 nawsSubset
+    npndSplit : Split NPND2 (reverse NawsSubset)
+    npndSplit = split isNPND2 NawsSubset
 
 --------------
 -- State CG --
