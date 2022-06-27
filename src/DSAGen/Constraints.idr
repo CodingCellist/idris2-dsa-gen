@@ -147,6 +147,19 @@ public export
 Uninhabited (IsTDEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
   uninhabited ItIsTDEdge impossible
 
+||| Prove that an edge is a take-dep edge (i.e. it contains a `TDCmd`), or
+||| produce a counter-proof for why it cannot be one.
+public export
+isTDEdge : (e : DSAEdge) -> Dec (IsTDEdge e)
+isTDEdge e@(MkDSAEdge (TDCmd _ _ _) _ _)    = Yes ItIsTDEdge
+isTDEdge e@(MkDSAEdge (PlainCmd _) _ _)     = No absurd
+isTDEdge e@(MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
+isTDEdge e@(MkDSAEdge (DepCmd _ _) _ _)     = No absurd
+isTDEdge e@(MkDSAEdge (ProdCmd _ _) _ _)    = No absurd
+isTDEdge e@(MkDSAEdge (TPCmd _ _ _) _ _)    = No absurd
+isTDEdge e@(MkDSAEdge (DPCmd _ _ _) _ _)    = No absurd
+isTDEdge e@(MkDSAEdge (TDPCmd _ _ _ _) _ _) = No absurd
+
 -------------------------
 -- Take-prod edge only --
 -------------------------
@@ -207,6 +220,19 @@ public export
 Uninhabited (IsDPEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
   uninhabited ItIsDPEdge impossible
 
+||| Prove that an edge is a dep-prod edge (i.e. it contains a `DPCmd`), or
+||| produce a counter-proof for why it cannot be one.
+public export
+isDPEdge : (e : DSAEdge) -> Dec (IsDPEdge e)
+isDPEdge e@(MkDSAEdge (DPCmd _ _ _) _ _)    = Yes ItIsDPEdge
+isDPEdge e@(MkDSAEdge (PlainCmd _) _ _)     = No absurd
+isDPEdge e@(MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
+isDPEdge e@(MkDSAEdge (DepCmd _ _) _ _)     = No absurd
+isDPEdge e@(MkDSAEdge (ProdCmd _ _) _ _)    = No absurd
+isDPEdge e@(MkDSAEdge (TDCmd _ _ _) _ _)    = No absurd
+isDPEdge e@(MkDSAEdge (TPCmd _ _ _) _ _)    = No absurd
+isDPEdge e@(MkDSAEdge (TDPCmd _ _ _ _) _ _) = No absurd
+
 -----------------------------
 -- Take-dep-prod edge only --
 -----------------------------
@@ -236,6 +262,19 @@ Uninhabited (IsTDPEdge (MkDSAEdge (TPCmd _ _ _) _ _)) where
 public export
 Uninhabited (IsTDPEdge (MkDSAEdge (DPCmd _ _ _) _ _)) where
   uninhabited ItIsTDPEdge impossible
+
+||| Prove that an edge is a take-dep-prod edge (i.e. it contains a `TDPCmd`), or
+||| produce a counter-proof for why it cannot be one.
+public export
+isTDPEdge : (e : DSAEdge) -> Dec (IsTDPEdge e)
+isTDPEdge e@(MkDSAEdge (TDPCmd _ _ _ _) _ _) = Yes ItIsTDPEdge
+isTDPEdge e@(MkDSAEdge (PlainCmd _) _ _)     = No absurd
+isTDPEdge e@(MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
+isTDPEdge e@(MkDSAEdge (DepCmd _ _) _ _)     = No absurd
+isTDPEdge e@(MkDSAEdge (ProdCmd _ _) _ _)    = No absurd
+isTDPEdge e@(MkDSAEdge (TDCmd _ _ _) _ _)    = No absurd
+isTDPEdge e@(MkDSAEdge (TPCmd _ _ _) _ _)    = No absurd
+isTDPEdge e@(MkDSAEdge (DPCmd _ _ _) _ _)    = No absurd
 
 -----------------------------
 -- Non-depedent edges only --

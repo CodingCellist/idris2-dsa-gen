@@ -65,7 +65,6 @@ record DPCmdAcc where
   ||| The list of value-state pairs that the command can dependently go to.
   cases : List1 ProdDepRes
 
-
 ---------------------------
 -- Accumulator functions --
 ---------------------------
@@ -91,29 +90,31 @@ addDECase acc (Element (MkDSAEdge (DepCmd cmd depCase) from to) _) =
 
 ||| Accumulate the list of dependent edges into a single data-structure keeping
 ||| track of the dependent results.
+||| /!\ DOES NOT CHECK NAME/CMD EQUALITY /!\
 total
 accDEs : (des : List1 (Subset DSAEdge IsDepEdge)) -> DepCmdAcc
 accDEs (head@(Element (MkDSAEdge (DepCmd cmd depCase) from to) _) ::: tail) =
   foldl addDECase (initDEAcc head) tail
 
+||| Accumulate all the unique dependent edges in the given non-empty list,
+||| returning the resulting accumulated/complete dependent edges.
+accAllDEs : List1 (Subset DSAEdge IsDepEdge) -> List1 DepCmdAcc
+accAllDEs (de1 ::: tail) =
+  case partition (deCmdEq de1) tail of
+       (de1s, []) => singleton $ accDEs (de1 ::: de1s)
+       (de1s, de2s@(_ :: _)) =>
+            cons (accDEs (de1 ::: de1s)) (accAllDEs $ toList1 de2s)
+  where
+    deCmdEq : (de1, de2 : Subset DSAEdge IsDepEdge) -> Bool
+    deCmdEq (Element (MkDSAEdge (DepCmd cmd1 _) _ _) _) (Element (MkDSAEdge (DepCmd cmd2 _) _ _) _) =
+      cmd1 == cmd2
+
 -- TODO (or is it?)
 initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
-
-subsetFilter : ((x : a) -> Dec (p x)) -> (xs : List a) -> List (Subset a p)
-subsetFilter f [] = []
-subsetFilter f (x :: xs) with (f x)
-  _ | (Yes prf) = (Element x prf) :: subsetFilter f xs
-  _ | (No contra) = subsetFilter f xs
-
-extractDepEdges :  (spl : Split IsNonDepEdge nonPlainEs)
-                -> List (Subset DSAEdge IsDepEdge)
-extractDepEdges (MkSplit {naws} _ contras) =
-  subsetFilter isDepEdge naws
 
 -----------------
 -- Misc. utils --
 -----------------
-
 
 ||| If the given string starts with an open-parenthesis, then removes the first
 ||| and last character of the string (i.e. de-parenthesises it).
@@ -132,6 +133,14 @@ cleanDataConsDecl rawDCD =
 %inline
 indentAndLineSep : List String -> String
 indentAndLineSep =  joinBy "\n" . map (indent tabWidth)
+
+||| Given a predicate and a list of elements, return the list of elements that
+||| satisfy the predicate, paired with the proof that they satisfy it.
+subsetFilter : ((x : a) -> Dec (p x)) -> (xs : List a) -> List (Subset a p)
+subsetFilter f [] = []
+subsetFilter f (x :: xs) with (f x)
+  _ | (Yes prf) = (Element x prf) :: subsetFilter f xs
+  _ | (No contra) = subsetFilter f xs
 
 --------------------------------------------------------------------------------
 -- INTERFACES --
@@ -437,6 +446,70 @@ genNotPlainNonDepEdges :  (dsaName : String)
 genNotPlainNonDepEdges dsaName npndEs =
   indentAndLineSep $ map (genNotPlainNonDepEdge dsaName) npndEs
 
+||| Partition, accumulate, and generate all the non-plain, dependent edge
+||| definitions, properly indenting and line-separating them along the way.
+genNonPlainDependentEdges :  (dsaName : String)
+                          -> (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
+                          -> String
+genNonPlainDependentEdges dsaName npdEs =
+  joinBy "\n" [depDecls, tdDecls, dpDecls, tdpDecls]
+  where
+    -- forget the proofs/constraints associated with the npdEs list;
+    -- should be fine, since the exterior (i.e. the function you can call) is
+    -- still constrained
+    justTheNPDEs : List DSAEdge
+    justTheNPDEs = map (Subset.fst . Subset.fst) npdEs
+
+    -- all the dependent commands, indented and line-separated
+    depDecls : String
+    depDecls =
+      case subsetFilter isDepEdge justTheNPDEs of
+           [] => ""
+           des@(_ :: _) => indentAndLineSep $
+               map (genDepCmdBody dsaName) $ toList (accAllDEs $ toList1 des)
+
+    -- all the take-dep commands, indented and line-separated
+    tdDecls : String
+    tdDecls =
+      case subsetFilter isTDEdge justTheNPDEs of
+           [] => ""
+           tdEs@(_ :: _) => ?takedep_cg_not_implemented_sorry
+
+    -- all the dep-prod commands, indented and line-separated
+    dpDecls : String
+    dpDecls =
+      case subsetFilter isDPEdge justTheNPDEs of
+           [] => ""
+           dpEs@(_ :: _) => ?depprod_cg_not_implemented_sorry
+
+    -- all the take-dep-prod commands, indented and line-separated
+    tdpDecls : String
+    tdpDecls =
+      case subsetFilter isTDPEdge justTheNPDEs of
+           [] => ""
+           tpdEs@(_ :: _) => ?takedepprod_cg_not_implemented_sorry
+
+---- ||| Generate the data constructor representing a non-plain, dependent edge (i.e.
+---- ||| either a Take, Prod, or Take-Prod edge).
+---- |||
+---- ||| @ dsaName The name of the DSA in which the edge occurs.
+---- ||| @ npndEdge The non-plain, non-dependent edge; along with its proofs.
+---- genNotPlainDepEdge :  (dsaName : String)
+----                    -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2))
+----                    -> String
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (PlainCmd _) _ _) np) _) =
+----   void $ np EdgeIsPlain
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TakeCmd _ _) _ _) _) npIsDep) =
+----   void $ npIsDep TakeNonDep
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (ProdCmd _ _) _ _) _) npIsDep) =
+----   void $ npIsDep ProdNonDep
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TPCmd _ _ _) _ _) _) npIsDep) =
+----   void $ npIsDep TPNonDep
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (DepCmd cmd dep) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_5
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TDCmd cmd arg dep) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_7
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (DPCmd cmd dep res) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_9
+---- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TDPCmd cmd arg dep res) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_10
+
 -----------------------
 -- Universal Edge CG --
 -----------------------
@@ -469,7 +542,7 @@ genEdges :  (dsaName : String)
          -> (edges : Split IsPlainEdge allEdges)
          -> String
 genEdges dsaName edges =
-  plainEdgeDefs ++ ?genEdges_rhs_2
+  plainEdgeDefs ++ npndEdges ++ npDepEdges
   where
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
@@ -483,9 +556,15 @@ genEdges dsaName edges =
     npndSplit : Split NPND2 (reverse NotPlainEdges)
     npndSplit = split isNPND2 NotPlainEdges
 
-    -- all the non-plain, non-dependent edge definitions, indented etc.
+    -- all the non-plain, NON-DEPENDENT edge definitions, indented etc.
     npndEdges : String
-    npndEdges = genNotPlainNonDepEdges dsaName $ pushIn npndSplit.ayes npndSplit.prfs
+    npndEdges =
+      genNotPlainNonDepEdges dsaName $ pushIn npndSplit.ayes npndSplit.prfs
+
+    -- all the non-plain, DEPENDENT edge definitions, indented etc.
+    npDepEdges : String
+    npDepEdges =
+      genNonPlainDependentEdges dsaName $ pushIn npndSplit.naws npndSplit.contras
 
 --------------
 -- State CG --
