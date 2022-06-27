@@ -109,9 +109,6 @@ accAllDEs (de1 ::: tail) =
     deCmdEq (Element (MkDSAEdge (DepCmd cmd1 _) _ _) _) (Element (MkDSAEdge (DepCmd cmd2 _) _ _) _) =
       cmd1 == cmd2
 
--- TODO (or is it?)
-initDPAcc : (iDPEdge : Subset DSAEdge IsDPEdge) -> DPCmdAcc
-
 -----------------
 -- Misc. utils --
 -----------------
@@ -465,27 +462,6 @@ genNonPlainDependentEdges dsaName npdEs =
       case subsetFilter isTDPEdge justTheNPDEs of
            [] => ""
            tpdEs@(_ :: _) => ?takedepprod_cg_not_implemented_sorry
-
----- ||| Generate the data constructor representing a non-plain, dependent edge (i.e.
----- ||| either a Take, Prod, or Take-Prod edge).
----- |||
----- ||| @ dsaName The name of the DSA in which the edge occurs.
----- ||| @ npndEdge The non-plain, non-dependent edge; along with its proofs.
----- genNotPlainDepEdge :  (dsaName : String)
-----                    -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2))
-----                    -> String
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (PlainCmd _) _ _) np) _) =
-----   void $ np EdgeIsPlain
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TakeCmd _ _) _ _) _) npIsDep) =
-----   void $ npIsDep TakeNonDep
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (ProdCmd _ _) _ _) _) npIsDep) =
-----   void $ npIsDep ProdNonDep
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TPCmd _ _ _) _ _) _) npIsDep) =
-----   void $ npIsDep TPNonDep
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (DepCmd cmd dep) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_5
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TDCmd cmd arg dep) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_7
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (DPCmd cmd dep res) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_9
----- genNotPlainDepEdge dsaName (Element (Element (MkDSAEdge (TDPCmd cmd arg dep res) from to) np) npIsDep) = ?genNotPlainDepEdge_rhs_10
 
 -----------------------
 -- Universal Edge CG --

@@ -326,43 +326,6 @@ Uninhabited (IsNonDepEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
 ||| A proof that the given edge is not a dependent edge (i.e. it always goes to
 ||| the same state), AND that the edge is not a plain edge (i.e. it _does_ do
 ||| something interesting, for example producing a value).
-public export
-data NotPlainNotDep : (e : DSAEdge) -> (0 nip : Not $ IsPlainEdge e) -> Type where
-  ||| A production-edge is not a plain edge, but it is also not dependent.
-  IsActuallyProd :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (ProdCmd c a) f t))}
-                 -> NotPlainNotDep (MkDSAEdge (ProdCmd c a) f t) constraint 
-  ||| A take-edge is not a plain edge, but it is also not dependent.
-  IsActuallyTake :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (TakeCmd c a) f t))}
-                 -> NotPlainNotDep (MkDSAEdge (TakeCmd c a) f t) constraint 
-  ||| A take-produce edge is not a plain edge, but it is also not dependent.
-  IsActuallyTP :  {0 constraint : (Not $ IsPlainEdge (MkDSAEdge (TPCmd c a v) f t))}
-               -> NotPlainNotDep (MkDSAEdge (TPCmd c a v) f t) constraint 
-
-
-public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) nonPlainPrf) where
-  uninhabited IsActuallyProd impossible
-  uninhabited IsActuallyTake impossible
-  uninhabited IsActuallyTP impossible
-
-public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) nonPlainPrf) where
-  uninhabited IsActuallyProd impossible
-  uninhabited IsActuallyTake impossible
-  uninhabited IsActuallyTP impossible
-
-public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) nonPlainPrf) where
-  uninhabited IsActuallyProd impossible
-  uninhabited IsActuallyTake impossible
-  uninhabited IsActuallyTP impossible
-
-public export
-Uninhabited (NotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf) where
-  uninhabited IsActuallyProd impossible
-  uninhabited IsActuallyTake impossible
-  uninhabited IsActuallyTP impossible
-
 ||| Second attempt at `NotPlainNonDep`...
 public export
 data NPND2 : Subset DSAEdge (Not . IsPlainEdge) -> Type where
@@ -397,51 +360,6 @@ Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf)) where
 -------------------
 -- Dec functions --
 -------------------
-
-||| Prove that the given edge is not a dependent edge, or produce the
-||| counter-proof for why it must be a dependent edge.
-public export
-isNonDepEdge : (e : DSAEdge) -> (0 c : Not $ IsPlainEdge e) -> Dec (IsNonDepEdge e)
-isNonDepEdge (MkDSAEdge (PlainCmd _) _ _) c = void $ c EdgeIsPlain
-isNonDepEdge (MkDSAEdge (TakeCmd cmd arg) from to) c = ?isNonDepEdge_rhs_2
-isNonDepEdge (MkDSAEdge (ProdCmd cmd res) from to) c = ?isNonDepEdge_rhs_4
-isNonDepEdge (MkDSAEdge (TPCmd cmd arg res) from to) c = ?isNonDepEdge_rhs_6
-isNonDepEdge (MkDSAEdge (DepCmd cmd dep) from to) c = ?isNonDepEdge_rhs_3
-isNonDepEdge (MkDSAEdge (TDCmd cmd arg dep) from to) c = ?isNonDepEdge_rhs_5
-isNonDepEdge (MkDSAEdge (DPCmd cmd dep res) from to) c = ?isNonDepEdge_rhs_7
-isNonDepEdge (MkDSAEdge (TDPCmd cmd arg dep res) from to) c = ?isNonDepEdge_rhs_8
-
-||| Prove that the given, non-plain edge is not a dependent edge, or produce the
-||| counterproof showing that it must be a dependent edge.
-|||
-||| See-also: `NotPlainNotDep`
-public export
-isNotPlainNotDep :  (e : DSAEdge)
-                 -> (0 c : Not $ IsPlainEdge e)
-                 -> Dec (NotPlainNotDep e c)
-isNotPlainNotDep (MkDSAEdge (PlainCmd _) _ _) c = void $ c EdgeIsPlain
-isNotPlainNotDep (MkDSAEdge (DepCmd _ _) _ _) c            = No absurd
-isNotPlainNotDep (MkDSAEdge (TDCmd _ _ _) _ _) c           = No absurd
-isNotPlainNotDep (MkDSAEdge (DPCmd _ _ _) _ _) c           = No absurd
-isNotPlainNotDep (MkDSAEdge (TDPCmd _ _ _ _) _ _) c        = No absurd
-isNotPlainNotDep (MkDSAEdge (TakeCmd cmd arg) from to) c   = Yes IsActuallyTake
-isNotPlainNotDep (MkDSAEdge (ProdCmd cmd res) from to) c   = Yes IsActuallyProd
-isNotPlainNotDep (MkDSAEdge (TPCmd cmd arg res) from to) c = Yes IsActuallyTP
-
-||| Same as `isNotPlainNotDep`, but operating on `Subset`s.
-|||
-||| See-also: `isNotPlainNotDep`.
-public export
-isNotPlainNotDepSubset :  (s : Subset DSAEdge (Not . IsPlainEdge))
-                       -> Dec (NotPlainNotDep s.fst s.snd)
-isNotPlainNotDepSubset (Element (MkDSAEdge (PlainCmd _) _ _) snd) = void $ snd EdgeIsPlain
-isNotPlainNotDepSubset (Element (MkDSAEdge (DepCmd _ _) _ _) snd) = No absurd
-isNotPlainNotDepSubset (Element (MkDSAEdge (TDCmd _ _ _) _ _) snd) = No absurd
-isNotPlainNotDepSubset (Element (MkDSAEdge (DPCmd _ _ _) _ _) snd) = No absurd
-isNotPlainNotDepSubset (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) snd) = No absurd
-isNotPlainNotDepSubset (Element (MkDSAEdge (TakeCmd _ _) _ _) snd) = Yes IsActuallyTake
-isNotPlainNotDepSubset (Element (MkDSAEdge (ProdCmd _ _) _ _) snd) = Yes IsActuallyProd
-isNotPlainNotDepSubset (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd) = Yes IsActuallyTP
 
 public export
 isNPND2 : (s : Subset DSAEdge (Not . IsPlainEdge)) -> Dec (NPND2 s)
