@@ -604,7 +604,7 @@ toDSAv2 (MkGraph Nothing DigraphKW (Just id_) stmtList) =
      let edges = splitPlainEdges dsaEdges
      let dsa = MkDSAv2 dsaName states edges univEdges
      pure dsa
-
+-- we can't convert other types of graphs
 toDSAv2 graph = Left $ GraphStructureError graph
 
 

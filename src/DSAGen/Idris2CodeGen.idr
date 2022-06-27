@@ -174,14 +174,14 @@ noRes = "()"
 
 ||| Pure is always defined for DSAs in the same way.
 total
-pure : (dsaName : String) -> String
-pure dsaName =
+pureCmd : (dsaName : String) -> String
+pureCmd dsaName =
   "Pure : (res : resTy) -> \{dsaName}Cmd resTy (state_fn res) state_fn"
 
 ||| Bind (>>=) is always defined for DSAs in the same way.
 total
-bind : (dsaName : String) -> String
-bind dsaName =
+bindCmd : (dsaName : String) -> String
+bindCmd dsaName =
   "(>>=) :  \{dsaName}Cmd resTy state_1 state2_fn\n" ++
   "      -> (contn : (res : resTy) -> \{dsaName}Cmd cResTy (state2_fn res) state3_fn)\n" ++
   "      -> \{dsaName}Cmd cResTy state_1 state3_fn"
@@ -605,8 +605,12 @@ export
 toIdris2 : DSAv2 -> String
 toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
+      depResults = ?genDepResults edges
+      cmdDecl = ?genCmdDecl dsaName
       edges = genEdges dsaName edges
       ues = map (genUniversalEdge dsaName) universalEdges
+      pure = pureCmd dsaName
+      bind = bindCmd dsaName
   in ?toIdris_rhs_0
 
 
