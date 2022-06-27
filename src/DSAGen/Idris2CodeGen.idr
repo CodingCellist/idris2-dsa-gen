@@ -335,31 +335,6 @@ genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
       toState = genValue to.fst
   in "\{cmd} : \{argStr} -> \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
-||| Generate the data-type which contains the results the given dependent
-||| command may return.
-|||
-||| @ completeDC The complete dependent command, i.e. the record containing the
-|||              accumulated possible cases and destinations, as well as the
-|||              command name and `from` state.
-genDepRess : (completeDC : DepCmdAcc) -> String
-genDepRess completeDC =
-  resTyDecl ++ resTyConss
-  where
-    depResName : DepArg -> String
-    depResName (DepsOn val) = genValue val
-
-    -- the start of the result data-type declaration
-    resTyDecl : String
-    resTyDecl = "data \{completeDC.cmd}Res" ++ "\n" ++ indent tabWidth "= "
-
-    -- the string form of the dependent cases
-    caseNames : List1 DepRes -> List1 String
-    caseNames drs = map (\dr => cleanDataConsDecl $ depResName dr.depCase) drs
-
-    -- the constructors of the result data-type
-    resTyConss : String
-    resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDC.cases
-
 ||| Generate the `case` expression which represents the transition function of
 ||| the given dependent command.
 |||
@@ -518,6 +493,35 @@ genUniversalEdge dsaName (MkUniversalEdge
   let cmdStart = commandTy dsaName
       destState = genValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
+
+-------------------------
+-- Dependent result CG --
+-------------------------
+
+||| Generate the data-type which contains the results the given dependent
+||| command may return.
+|||
+||| @ completeDC The complete dependent command, i.e. the record containing the
+|||              accumulated possible cases and destinations, as well as the
+|||              command name and `from` state.
+genDepRess : (completeDC : DepCmdAcc) -> String
+genDepRess completeDC =
+  resTyDecl ++ resTyConss
+  where
+    depResName : DepArg -> String
+    depResName (DepsOn val) = genValue val
+
+    -- the start of the result data-type declaration
+    resTyDecl : String
+    resTyDecl = "data \{completeDC.cmd}Res" ++ "\n" ++ indent tabWidth "= "
+
+    -- the string form of the dependent cases
+    caseNames : List1 DepRes -> List1 String
+    caseNames drs = map (\dr => cleanDataConsDecl $ depResName dr.depCase) drs
+
+    -- the constructors of the result data-type
+    resTyConss : String
+    resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDC.cases
 
 -------------
 -- Edge CG --
