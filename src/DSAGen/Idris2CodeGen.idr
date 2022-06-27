@@ -191,18 +191,12 @@ bindCmd dsaName =
 -- Type-gen functions --
 ------------------------
 
-||| The data type for DSA states is based on the DSA's name.
-total
-stateType : (dsaName : String) -> String
-stateType dsaName =
-  "data \{dsaName}State : Type where"
-
 ||| The data type for DSA commands is based on the DSA's name and carries the
 ||| result type, the current state, and a function from the result type to the
 ||| next state.
 total
-cmdType : (dsaName : String) -> String
-cmdType dsaName =
+genCmdDecl : (dsaName : String) -> String
+genCmdDecl dsaName =
   "data \{dsaName}Cmd : (resTy : Type) -> \{dsaName}State -> (resTy -> \{dsaName}State) -> Type where"
 
 
@@ -606,7 +600,7 @@ toIdris2 : DSAv2 -> String
 toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
       depResults = ?genDepResults edges
-      cmdDecl = ?genCmdDecl dsaName
+      cmdDecl = genCmdDecl dsaName
       edges = genEdges dsaName edges
       ues = map (genUniversalEdge dsaName) universalEdges
       pure = pureCmd dsaName
