@@ -502,6 +502,11 @@ genUniversalEdge dsaName (MkUniversalEdge
       destState = genValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
+||| Generate all the universal edge commands, indented and line-separated.
+genUniversalEdges : (dsaName : String) -> (ues : List UniversalEdge) -> String
+genUniversalEdges dsaName ues =
+  indentAndLineSep $ map (genUniversalEdge dsaName) ues
+
 -------------------------
 -- Dependent result CG --
 -------------------------
@@ -676,11 +681,19 @@ toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
       depResults = genDepResults edges
       cmdDecl = genCmdDecl dsaName
-      edges = genEdges dsaName edges
-      ues = map (genUniversalEdge dsaName) universalEdges
-      pure = pureCmd dsaName
-      bind = bindCmd dsaName
-  in ?toIdris_rhs_0
+      edgeCmds = genEdges dsaName edges
+      univEdgeCmds = genUniversalEdges dsaName universalEdges
+      thePureCmd = pureCmd dsaName
+      theBindCmd = bindCmd dsaName
+  in joinBy "\n\n" $
+     [ states
+     , depResults
+     , cmdDecl
+     , edgeCmds
+     , univEdgeCmds
+     , thePureCmd
+     , theBindCmd
+     ]
 
 
 --------------------------------------------------------------------------------
