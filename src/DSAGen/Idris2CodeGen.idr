@@ -142,6 +142,14 @@ subsetFilter f (x :: xs) with (f x)
   _ | (Yes prf) = (Element x prf) :: subsetFilter f xs
   _ | (No contra) = subsetFilter f xs
 
+||| Convert a `Split` of a property into the `Subset` of only the elements which
+||| did not satisfy the predicate used for the `Split`. This forgets the
+||| relation to the interleaving list that the `Split` contains.
+%inline
+-- note: adding {0 l : List a} significantly speeds things up (unification slow?)
+splitNawsSubset : {0 l : List a} -> (s : Split p l) -> List (Subset a (Not . p))
+splitNawsSubset s = pushIn s.naws s.contras
+
 --------------------------------------------------------------------------------
 -- INTERFACES --
 --------------------------------------------------------------------------------
@@ -504,8 +512,8 @@ genUniversalEdge dsaName (MkUniversalEdge
 ||| @ completeDC The complete dependent command, i.e. the record containing the
 |||              accumulated possible cases and destinations, as well as the
 |||              command name and `from` state.
-genDepRess : (completeDC : DepCmdAcc) -> String
-genDepRess completeDC =
+genDepResDataTy : (completeDC : DepCmdAcc) -> String
+genDepResDataTy completeDC =
   resTyDecl ++ resTyConss
   where
     depResName : DepArg -> String
@@ -522,6 +530,69 @@ genDepRess completeDC =
     -- the constructors of the result data-type
     resTyConss : String
     resTyConss = joinBy ("\n" ++ indent tabWidth "| ") $ toList $ caseNames completeDC.cases
+
+||| Given a list of non-plain, dependent edges, accumulate and generate the
+||| dependent result data-types needed to define the corresponding commands
+||| (later in the overarching process).
+genDepRess :  (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
+           -> String
+genDepRess npdEs =
+  joinBy "\n" [depResDecls, tdResDecls, dpResDecls, tdpResDecls]
+  where
+    -- forget the proofs/constraints associated with the npdEs list;
+    -- should be fine, since the exterior (i.e. the function you can call) is
+    -- still constrained
+    justTheNPDEs : List DSAEdge
+    justTheNPDEs = map (Subset.fst . Subset.fst) npdEs
+
+    -- all the dependent commands, indented and line-separated
+    depResDecls : String
+    depResDecls =
+      case subsetFilter isDepEdge justTheNPDEs of
+           [] => ""
+           des@(_ :: _) => indentAndLineSep $
+               map genDepResDataTy $ toList (accAllDEs $ toList1 des)
+
+    -- all the take-dep commands, indented and line-separated
+    tdResDecls : String
+    tdResDecls =
+      case subsetFilter isTDEdge justTheNPDEs of
+           [] => ""
+           tdEs@(_ :: _) => ?takedep_res_cg_not_implemented_sorry
+
+    -- all the dep-prod commands, indented and line-separated
+    dpResDecls : String
+    dpResDecls =
+      case subsetFilter isDPEdge justTheNPDEs of
+           [] => ""
+           dpEs@(_ :: _) => ?depprod_res_cg_not_implemented_sorry
+
+    -- all the take-dep-prod commands, indented and line-separated
+    tdpResDecls : String
+    tdpResDecls =
+      case subsetFilter isTDPEdge justTheNPDEs of
+           [] => ""
+           tpdEs@(_ :: _) => ?takedepprod_res_cg_not_implemented_sorry
+
+
+||| Generate all the data-type declarations needed for dependent edge
+||| transitions.
+genDepResults :  (edges : Split IsPlainEdge allEdges)
+              -> String
+genDepResults edges =
+  genDepRess npDepEdges
+  where
+    -- all the non-plain edges, paired with their proofs
+    NotPlainEdges : List (Subset DSAEdge (Not . IsPlainEdge))
+    NotPlainEdges = splitNawsSubset edges
+
+    -- the split of non-plain edges, split on whether they're dependent
+    npndSplit : Split NPND2 (reverse NotPlainEdges)
+    npndSplit = split isNPND2 NotPlainEdges
+
+    -- the list of non-plain, dependent edges, paired with their proofs
+    npDepEdges : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2))
+    npDepEdges = splitNawsSubset npndSplit
 
 -------------
 -- Edge CG --
@@ -548,7 +619,7 @@ genEdges dsaName edges =
 
     -- all the non-plain edges, paired with their proofs
     NotPlainEdges : List (Subset DSAEdge (Not . IsPlainEdge))
-    NotPlainEdges = pushIn edges.naws edges.contras
+    NotPlainEdges = splitNawsSubset edges
 
     -- the split of non-plain edges, split on whether they're dependent
     npndSplit : Split NPND2 (reverse NotPlainEdges)
@@ -568,7 +639,7 @@ genEdges dsaName edges =
 -- State CG --
 --------------
 
--- adapted from `genDepRess`
+-- adapted from `genDepResDataTy`
 ||| Generate the data-type which contains the states of the DSA
 ||| command may return.
 |||
@@ -603,7 +674,7 @@ export
 toIdris2 : DSAv2 -> String
 toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
-      depResults = ?genDepResults edges
+      depResults = genDepResults edges
       cmdDecl = genCmdDecl dsaName
       edges = genEdges dsaName edges
       ues = map (genUniversalEdge dsaName) universalEdges
@@ -981,21 +1052,21 @@ testAccDEs3 = show accDEs3
 
 ||| "data ADepCmdRes
 |||    = Res1"
-testGenDepRess1 : String
-testGenDepRess1 = genDepRess accDEs1
+testGenDepResDataTy1 : String
+testGenDepResDataTy1 = genDepResDataTy accDEs1
 
 ||| "data ADepCmdRes
 |||    = Res2
 |||    | Res1"
-testGenDepRess2 : String
-testGenDepRess2 = genDepRess accDEs2
+testGenDepResDataTy2 : String
+testGenDepResDataTy2 = genDepResDataTy accDEs2
 
 ||| "data ADepCmdRes
 |||    = Res3 (Arg3_1) ((Arg3_1), (Arg3_2))
 |||    | Res2 (Arg2_1)
 |||    | Res1"
-testGenDepRess3 : String
-testGenDepRess3 = genDepRess accDEs3
+testGenDepResDataTy3 : String
+testGenDepResDataTy3 = genDepResDataTy accDEs3
 
 --------------------------
 -- Dep-edge case-fn gen --
