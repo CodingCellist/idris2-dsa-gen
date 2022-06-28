@@ -421,7 +421,7 @@ genDepCmdBody dsaName completeDC =
 ||| @ dsaName The name of the DSA in which the edge occurs.
 ||| @ npndEdge The non-plain, non-dependent edge; along with its proofs.
 genNotPlainNonDepEdge :  (dsaName : String)
-                      -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND2)
+                      -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND)
                       -> String
 genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (PlainCmd _) _ _) np) _) =
   void $ np EdgeIsPlain
@@ -448,7 +448,7 @@ genNotPlainNonDepEdge dsaName (Element (Element tpe@(MkDSAEdge (TPCmd cmd arg re
 |||          proofs.
 ||| See-also: `genNotPlainNonDepEdge`
 genNotPlainNonDepEdges :  (dsaName : String)
-                       -> (npndEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND2))
+                       -> (npndEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND))
                        -> String
 genNotPlainNonDepEdges dsaName npndEs =
   indentAndLineSep $ map (genNotPlainNonDepEdge dsaName) npndEs
@@ -456,7 +456,7 @@ genNotPlainNonDepEdges dsaName npndEs =
 ||| Partition, accumulate, and generate all the non-plain, dependent edge
 ||| definitions, properly indenting and line-separating them along the way.
 genNonPlainDependentEdges :  (dsaName : String)
-                          -> (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
+                          -> (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND)))
                           -> String
 genNonPlainDependentEdges dsaName npdEs =
   joinBy "\n" $ filter (/= "") $ [depDecls, tdDecls, dpDecls, tdpDecls]
@@ -549,7 +549,7 @@ genDepResDataTy completeDC =
 ||| Given a list of non-plain, dependent edges, accumulate and generate the
 ||| dependent result data-types needed to define the corresponding commands
 ||| (later in the overarching process).
-genDepRess :  (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
+genDepRess :  (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND)))
            -> String
 genDepRess npdEs =
   joinBy "\n" $ filter (/= "") $ [depResDecls, tdResDecls, dpResDecls, tdpResDecls]
@@ -602,11 +602,11 @@ genDepResults edges =
     NotPlainEdges = splitNawsSubset edges
 
     -- the split of non-plain edges, split on whether they're dependent
-    npndSplit : Split NPND2 (reverse NotPlainEdges)
-    npndSplit = split isNPND2 NotPlainEdges
+    npndSplit : Split NPND (reverse NotPlainEdges)
+    npndSplit = split isNPND NotPlainEdges
 
     -- the list of non-plain, dependent edges, paired with their proofs
-    npDepEdges : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2))
+    npDepEdges : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND))
     npDepEdges = splitNawsSubset npndSplit
 
 -------------
@@ -637,8 +637,8 @@ genEdges dsaName edges =
     NotPlainEdges = splitNawsSubset edges
 
     -- the split of non-plain edges, split on whether they're dependent
-    npndSplit : Split NPND2 (reverse NotPlainEdges)
-    npndSplit = split isNPND2 NotPlainEdges
+    npndSplit : Split NPND (reverse NotPlainEdges)
+    npndSplit = split isNPND NotPlainEdges
 
     -- all the non-plain, NON-DEPENDENT edge definitions, indented etc.
     npndEdges : String

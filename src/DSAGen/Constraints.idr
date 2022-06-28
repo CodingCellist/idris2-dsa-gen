@@ -341,31 +341,31 @@ Uninhabited (IsNonDepEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
 ||| something interesting, for example producing a value).
 ||| Second attempt at `NotPlainNonDep`...
 public export
-data NPND2 : Subset DSAEdge (Not . IsPlainEdge) -> Type where
-  ProdNonDep : NPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) nonPlainPrf)
-  TakeNonDep : NPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) nonPlainPrf)
-  TPNonDep   : NPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) nonPlainPrf)
+data NPND : Subset DSAEdge (Not . IsPlainEdge) -> Type where
+  ProdNonDep : NPND (Element (MkDSAEdge (ProdCmd _ _) _ _) nonPlainPrf)
+  TakeNonDep : NPND (Element (MkDSAEdge (TakeCmd _ _) _ _) nonPlainPrf)
+  TPNonDep   : NPND (Element (MkDSAEdge (TPCmd _ _ _) _ _) nonPlainPrf)
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) nonPlainPrf)) where
+Uninhabited (NPND (Element (MkDSAEdge (DepCmd _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) nonPlainPrf)) where
+Uninhabited (NPND (Element (MkDSAEdge (TDCmd _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) nonPlainPrf)) where
+Uninhabited (NPND (Element (MkDSAEdge (DPCmd _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
 
 public export
-Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf)) where
+Uninhabited (NPND (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf)) where
   uninhabited ProdNonDep impossible
   uninhabited TakeNonDep impossible
   uninhabited TPNonDep impossible
@@ -375,13 +375,13 @@ Uninhabited (NPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) nonPlainPrf)) where
 -------------------
 
 public export
-isNPND2 : (s : Subset DSAEdge (Not . IsPlainEdge)) -> Dec (NPND2 s)
-isNPND2 (Element (MkDSAEdge (PlainCmd _) _ _) snd)     = void $ snd EdgeIsPlain
-isNPND2 (Element (MkDSAEdge (DepCmd _ _) _ _) snd)     = No absurd
-isNPND2 (Element (MkDSAEdge (TDCmd _ _ _) _ _) snd)    = No absurd
-isNPND2 (Element (MkDSAEdge (DPCmd _ _ _) _ _) snd)    = No absurd
-isNPND2 (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) snd) = No absurd
-isNPND2 (Element (MkDSAEdge (TakeCmd _ _) _ _) snd)    = Yes TakeNonDep
-isNPND2 (Element (MkDSAEdge (ProdCmd _ _) _ _) snd)    = Yes ProdNonDep
-isNPND2 (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd)    = Yes TPNonDep
+isNPND : (s : Subset DSAEdge (Not . IsPlainEdge)) -> Dec (NPND s)
+isNPND (Element (MkDSAEdge (PlainCmd _) _ _) snd)     = void $ snd EdgeIsPlain
+isNPND (Element (MkDSAEdge (DepCmd _ _) _ _) snd)     = No absurd
+isNPND (Element (MkDSAEdge (TDCmd _ _ _) _ _) snd)    = No absurd
+isNPND (Element (MkDSAEdge (DPCmd _ _ _) _ _) snd)    = No absurd
+isNPND (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) snd) = No absurd
+isNPND (Element (MkDSAEdge (TakeCmd _ _) _ _) snd)    = Yes TakeNonDep
+isNPND (Element (MkDSAEdge (ProdCmd _ _) _ _) snd)    = Yes ProdNonDep
+isNPND (Element (MkDSAEdge (TPCmd _ _ _) _ _) snd)    = Yes TPNonDep
 
