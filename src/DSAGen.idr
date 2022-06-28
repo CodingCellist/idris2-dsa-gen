@@ -77,6 +77,7 @@ mesiTest =
   do Right mesiDSA <- dotFileToDSA "../examples/MESI.gv"
        | Left err => printLn err
      putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+     putStrLn $ toIdris2 mesiDSA
 
 ||| Test the CG with a user-specified DOT-file.
 export
