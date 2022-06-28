@@ -1,0 +1,6 @@
+digraph ARQ {
+  "Ready sn" -> "Idle sn" [label="Send:(SeqNo sn)"]
+  "Idle sn" -> "Ready sn" [label="Wait?(Timeout)"]
+  "Idle sn" -> "Acked sn" [label="Wait?(Ack sn)"]
+  "Acked sn" -> "Ready sn" [label="Next!(SeqNo (sn + 1))"]
+}
