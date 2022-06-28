@@ -129,7 +129,7 @@ cleanDataConsDecl rawDCD =
 ||| the resulting appended string.
 %inline
 indentAndLineSep : List String -> String
-indentAndLineSep =  joinBy "\n" . map (indent tabWidth)
+indentAndLineSep = joinBy "\n" . map (indent tabWidth)
 
 ||| Given a predicate and a list of elements, return the list of elements that
 ||| satisfy the predicate, paired with the proof that they satisfy it.
@@ -180,16 +180,17 @@ noRes = "()"
 ||| Pure is always defined for DSAs in the same way.
 total
 pureCmd : (dsaName : String) -> String
-pureCmd dsaName =
+pureCmd dsaName = indent tabWidth $
   "Pure : (res : resTy) -> \{dsaName}Cmd resTy (state_fn res) state_fn"
 
 ||| Bind (>>=) is always defined for DSAs in the same way.
 total
 bindCmd : (dsaName : String) -> String
-bindCmd dsaName =
-  "(>>=) :  \{dsaName}Cmd resTy state_1 state2_fn\n" ++
-  "      -> (contn : (res : resTy) -> \{dsaName}Cmd cResTy (state2_fn res) state3_fn)\n" ++
-  "      -> \{dsaName}Cmd cResTy state_1 state3_fn"
+bindCmd dsaName = concat $ map (indent tabWidth) $
+  [ "(>>=) :  \{dsaName}Cmd resTy state_1 state2_fn\n"
+  , "      -> (contn : (res : resTy) -> \{dsaName}Cmd cResTy (state2_fn res) state3_fn)\n"
+  , "      -> \{dsaName}Cmd cResTy state_1 state3_fn"
+  ]
 
 
 ------------------------
@@ -426,7 +427,7 @@ genNonPlainDependentEdges :  (dsaName : String)
                           -> (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
                           -> String
 genNonPlainDependentEdges dsaName npdEs =
-  joinBy "\n" [depDecls, tdDecls, dpDecls, tdpDecls]
+  joinBy "\n" $ filter (/= "") $ [depDecls, tdDecls, dpDecls, tdpDecls]
   where
     -- forget the proofs/constraints associated with the npdEs list;
     -- should be fine, since the exterior (i.e. the function you can call) is
@@ -518,7 +519,7 @@ genDepResDataTy completeDC =
 genDepRess :  (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND2)))
            -> String
 genDepRess npdEs =
-  joinBy "\n" [depResDecls, tdResDecls, dpResDecls, tdpResDecls]
+  joinBy "\n" $ filter (/= "") $ [depResDecls, tdResDecls, dpResDecls, tdpResDecls]
   where
     -- forget the proofs/constraints associated with the npdEs list;
     -- should be fine, since the exterior (i.e. the function you can call) is
@@ -531,7 +532,7 @@ genDepRess npdEs =
     depResDecls =
       case subsetFilter isDepEdge justTheNPDEs of
            [] => ""
-           des@(_ :: _) => indentAndLineSep $
+           des@(_ :: _) => joinBy "\n" $
                map genDepResDataTy $ toList (accAllDEs $ toList1 des)
 
     -- all the take-dep commands, indented and line-separated
@@ -592,7 +593,7 @@ genEdges :  (dsaName : String)
          -> (edges : Split IsPlainEdge allEdges)
          -> String
 genEdges dsaName edges =
-  plainEdgeDefs ++ npndEdges ++ npDepEdges
+  joinBy "\n" $ [plainEdgeDefs, npndEdges, npDepEdges]
   where
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
@@ -661,7 +662,7 @@ toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
       univEdgeCmds = genUniversalEdges dsaName universalEdges
       thePureCmd = pureCmd dsaName
       theBindCmd = bindCmd dsaName
-  in joinBy "\n\n" $
+  in joinBy "\n\n" $ filter (/= "") $
      [ states
      , depResults
      , cmdDecl
