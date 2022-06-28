@@ -1,6 +1,6 @@
 # idris2-dsa-gen
 
-Idris2 code based on Dependent State Automata (DSA) diagrams.
+Auto-generating Idris2 code based on Dependent State Automata (DSA) diagrams.
 
 
 # What?
@@ -80,7 +80,7 @@ the result!
 
 In a nutshell: DOT/GraphViz diagrams are annotated with special syntax (using
 DOT's built-in `label`s), the result is then parsed and turned into a Domain
-Specific Language (DSL) which describes Dependent State Automata (DSAs). From
+Specific Language (DSL) which describes Dependent State Automata (DSA). From
 this DSA representation, the Idris2 code is then generated.
 
 ## Syntax
@@ -109,13 +109,13 @@ The complete process for code generation (cg) is as follows:
   1. The special DOT/GraphViz file is parsed by the
        [`dot-parse`](https://github.com/CodingCellist/idris2-dot-parse)
        package.
-  2. The AST is then converted to a DSA `DSL`, in part by the parsers found in
-       `src/DSAGen/Parser/`, which:
+  2. The AST is then converted to a DSA `DSLv2`, in part by the parsers found in
+       `src/DSAGen/Parser/`. This DSL stores:
      - Stores the DSA's name `dsaName`,
      - extracts the states,
      - extracts _all_ the edges,
      - filters and combines the Universal Edges from all the edges,
-     - splits the remaining edges using the `Split` datastructure and the
+     - splits the remaining edges using the `Split` data-structure and the
          `IsPlainEdge` proof, to separate the plain from the syntax-dependent
          edges.
   3. The states get cg-ed to a top-level type declaration with constructors for

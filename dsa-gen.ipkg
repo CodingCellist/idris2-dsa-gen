@@ -14,14 +14,15 @@ depends = contrib, dot-parse
 
 -- modules to install
 modules = DSAGen
-        , DSAGen.DSL
-        , DSAGen.DOTDSA
+        , DSAGen.DSLv2
         , DSAGen.Lexer
         , DSAGen.Lexer.Common
         , DSAGen.Parser
         , DSAGen.Parser.Common
         , DSAGen.Parser.Value
         , DSAGen.Parser.Label
+        , DSAGen.Constraints
+        , DSAGen.Idris2CodeGen
 
 -- main file (i.e. file to load at REPL)
 main = DSAGen
