@@ -79,7 +79,7 @@ the result!
 # How does it work?
 
 In a nutshell: DOT/GraphViz diagrams are annotated with special syntax (using
-DOT's built-in `label`s), the result is then parsed and put through a Domain
+DOT's built-in `label`s), the result is then parsed and turned into a Domain
 Specific Language (DSL) which describes Dependent State Automata (DSAs). From
 this DSA representation, the Idris2 code is then generated.
 
@@ -89,7 +89,7 @@ The DOT edge labels can use the following syntax to describe what the
 edge/command does (if anything):
 
   - `:(<val>)` -- specifies a value which the command takes as an argument.
-  - `?(<case-val>)` -- specifies a value which is a case in a dependent result
+  - `?(<case_val>)` -- specifies a value which is a case in a dependent result
       (e.g. the `CheckPIN` result in the ATM) and indicates that the edge only
       connects these states when this case is hit.
   - `!(<val>)` -- specifies a value which the command produces as a result.
@@ -130,8 +130,8 @@ The complete process for code generation (cg) is as follows:
          data-structure for easier cg.
      - For each of the types of dependent edges (i.e. dep, take-dep, dep-prod,
          and take-dep-prod), a data declaration with constructors is then
-         generated (note: only dep-edges at the moment, see
-         [limitations](#limitations))
+         generated (note: only dep-edges at the moment; see
+         [limitations](#limitations)).
   5. The DSA command (cmd) data declaration gets cg-ed.
   6. The commands/edges get cg-ed
      - First the plain edges are cg-ed.
@@ -139,7 +139,7 @@ The complete process for code generation (cg) is as follows:
      - and are then `split` again along a proof for non-plain-non-dependentness.
      - From this split, the non-plain-non-dependent edges get cg-ed,
      - And finally, the non-plain-dependent edges get cg-ed
-       * Only simple dependent edges are currently supported, see
+       * Only simple dependent edges are currently supported; see
            [limitations](#limitations).
   7. Universal Edges get cg-ed.
      - These are each a plain command producing no result, and going from
