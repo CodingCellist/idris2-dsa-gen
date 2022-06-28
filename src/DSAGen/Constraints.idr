@@ -117,6 +117,19 @@ public export
 Uninhabited (IsProdEdge (MkDSAEdge (TDPCmd _ _ _ _) _ _)) where
   uninhabited ItIsProdEdge impossible
 
+||| Prove that an edge is a producing edge (i.e. it contains a `ProdCmd`), or
+||| produce a counter-proof for why it cannot be one.
+public export
+isProdEdge : (e : DSAEdge) -> Dec (IsProdEdge e)
+isProdEdge e@(MkDSAEdge (ProdCmd _ _) _ _)    = Yes ItIsProdEdge
+isProdEdge e@(MkDSAEdge (PlainCmd _) _ _)     = No absurd
+isProdEdge e@(MkDSAEdge (TakeCmd _ _) _ _)    = No absurd
+isProdEdge e@(MkDSAEdge (DepCmd _ _) _ _)     = No absurd
+isProdEdge e@(MkDSAEdge (TDCmd _ _ _) _ _)    = No absurd
+isProdEdge e@(MkDSAEdge (TPCmd _ _ _) _ _)    = No absurd
+isProdEdge e@(MkDSAEdge (DPCmd _ _ _) _ _)    = No absurd
+isProdEdge e@(MkDSAEdge (TDPCmd _ _ _ _) _ _) = No absurd
+
 ------------------------
 -- Take-dep edge only --
 ------------------------
