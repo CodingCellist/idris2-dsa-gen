@@ -223,28 +223,60 @@ stateTy dsaName = "\{dsaName}State"
 
 ||| /!\ USE AS PART OF FUNCTIONS ONLY /!\
 |||
+||| Internal values are allowed to have plain Idris names, since these get
+||| interpreted as implicit arguments.
+|||
 ||| A value is one of:
 |||   - an Idris name
 |||   - an integer literal
 |||   - a data constructor, optionally taking some values as arguments
 |||   - the addition of two values
 |||   - a tuple of values
-genValue : Value -> String
+genInternalValue : Value -> String
 -- ez
-genValue (IdrName n) = n
-genValue (LitVal lit) = show lit
-genValue (DataVal dc Nothing) = "(\{dc})"
+genInternalValue (IdrName n) = n
+genInternalValue (LitVal lit) = show lit
+genInternalValue (DataVal dc Nothing) = "(\{dc})"
 -- funky
-genValue (DataVal dc (Just args)) =
-  let argString = joinBy " " (genValue <$> toList args)
+genInternalValue (DataVal dc (Just args)) =
+  let argString = joinBy " " (genInternalValue <$> toList args)
   in "(\{dc} \{argString})"
 
-genValue (AddExpr num addend) =
-  let numStr = genValue num
-      addendStr = genValue addend
+genInternalValue (AddExpr num addend) =
+  let numStr = genInternalValue num
+      addendStr = genInternalValue addend
   in "(\{numStr} + \{addendStr})"
 
-genValue (Tuple fst snd) = "(\{genValue fst}, \{genValue snd})"
+genInternalValue (Tuple fst snd) = "(\{genInternalValue fst}, \{genInternalValue snd})"
+
+||| /!\ USE AS PART OF FUNCTIONS ONLY /!\
+|||
+||| Top-level values differ slightly from internal ones in that they must be
+||| types! As such, if we do not know the type of a thing, we generate a hole
+||| instead.
+|||
+||| A value is one of:
+|||   - an Idris name (these become type holes)
+|||   - an integer literal
+|||   - a data constructor, optionally taking some values as arguments
+|||   - the addition of two values
+|||   - a tuple of values
+genTopLevelValue : Value -> String
+-- ez
+genTopLevelValue (IdrName n) = "?\{n}_type"
+genTopLevelValue (LitVal lit) = show lit
+genTopLevelValue (DataVal dc Nothing) = "(\{dc})"
+-- funky
+genTopLevelValue (DataVal dc (Just args)) =
+  let argString = joinBy " " (genTopLevelValue <$> toList args)
+  in "(\{dc} \{argString})"
+
+genTopLevelValue (AddExpr num addend) =
+  let numStr = genTopLevelValue num
+      addendStr = genTopLevelValue addend
+  in "(\{numStr} + \{addendStr})"
+
+genTopLevelValue (Tuple fst snd) = "(\{genTopLevelValue fst}, \{genTopLevelValue snd})"
 
 ||| A data value is a data constructor, optionally taking some arguments.
 |||
@@ -252,7 +284,7 @@ genValue (Tuple fst snd) = "(\{genValue fst}, \{genValue snd})"
 genDataConsDecl : (dcTy : String) -> Subset Value IsDataVal -> String
 genDataConsDecl dcTy (Element (DataVal dc Nothing) isDV) = "\{dc} : \{dcTy}"
 genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
-  let argStrings = map genValue args
+  let argStrings = map genInternalValue args
       argString = joinBy " -> " $ toList argStrings
   in "\{dc} : \{argString} -> \{dcTy}"
 
@@ -268,8 +300,8 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
 genPlainEdge : (dsaName : String) -> (edge : Subset DSAEdge IsPlainEdge) -> String
 genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
   let cmdStart = commandTy dsaName
-      fromState = genValue from.fst
-      toState = genValue to.fst
+      fromState = genInternalValue from.fst
+      toState = genInternalValue to.fst
   in "\{cmd} : \{cmdStart} \{noRes} \{fromState} (const \{toState})"
 
 ||| Generate all the plain edge definitions in the DSA, properly indented and
@@ -301,9 +333,9 @@ genTakeEdge :  (dsaName : String)
             -> String
 genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
   let cmdTyStart = commandTy dsaName
-      argStr = genValue arg
-      fromState = genValue from.fst
-      toState = genValue to.fst
+      argStr = genInternalValue arg
+      fromState = genInternalValue from.fst
+      toState = genInternalValue to.fst
   in "\{cmd} : \{argStr} -> \{cmdTyStart} \{noRes} \{fromState} (const \{toState})"
 
 ||| A command which produces a value is a constructor with the result as the
@@ -318,9 +350,9 @@ genProdEdge :  (dsaName : String)
             -> String
 genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
   let cmdTyStart = commandTy dsaName
-      resStr = genValue val
-      fromState = genValue from.fst
-      toState = genValue to.fst
+      resStr = genInternalValue val
+      fromState = genInternalValue from.fst
+      toState = genInternalValue to.fst
   in "\{cmd} : \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
 ||| A command which takes and produces a value is a function from the argument
@@ -335,10 +367,10 @@ genTPEdge :  (dsaName : String)
           -> String
 genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
   let cmdTyStart = commandTy dsaName
-      argStr = genValue arg
-      resStr = genValue val
-      fromState = genValue from.fst
-      toState = genValue to.fst
+      argStr = genInternalValue arg
+      resStr = genInternalValue val
+      fromState = genInternalValue from.fst
+      toState = genInternalValue to.fst
   in "\{cmd} : \{argStr} -> \{cmdTyStart} \{resStr} \{fromState} (const \{toState})"
 
 ||| Generate the `case` expression which represents the transition function of
@@ -351,11 +383,11 @@ genDepCmdCaseExpr (MkDCAcc _ _ cases) =
   where
     -- the LHS (i.e. pattern) of the case expression
     genCaseLHS : DepArg -> String
-    genCaseLHS (DepsOn val) = genValue val
+    genCaseLHS (DepsOn val) = genInternalValue val
 
     -- the RHS (i.e. destination state) of the case-match
     genCaseRHS : Subset Value IsDataVal -> String
-    genCaseRHS depDest = genValue depDest.fst
+    genCaseRHS depDest = genInternalValue depDest.fst
 
     genCase : DepRes -> String
     genCase dr = "\{genCaseLHS dr.depCase} => \{genCaseRHS dr.caseTo}"
@@ -377,7 +409,7 @@ genDepCmdBody dsaName completeDC =
     resTy = "(\{completeDC.cmd}Res)"
 
     fromState : String
-    fromState = genValue completeDC.from.fst
+    fromState = genInternalValue completeDC.from.fst
 
     -- the destination state is a dep.t function (that's kinda the whole idea)
     toCaseFn : String
@@ -476,7 +508,7 @@ genUniversalEdge dsaName (MkUniversalEdge
                          (Element dest@(DataVal to args) isDV)
                          ) =
   let cmdStart = commandTy dsaName
-      destState = genValue dest
+      destState = genInternalValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
 ||| Generate all the universal edge commands, indented and line-separated.
@@ -499,7 +531,8 @@ genDepResDataTy completeDC =
   resTyDecl ++ resTyConss
   where
     depResName : DepArg -> String
-    depResName (DepsOn val) = genValue val
+    -- depResName (DepsOn val) = genInternalValue val
+    depResName (DepsOn val) = genTopLevelValue val
 
     -- the start of the result data-type declaration
     resTyDecl : String
@@ -641,7 +674,7 @@ genStates dsaName states =
     -- the string form of the states
     stateNames : List Value -> List String
     stateNames =
-      map (cleanDataConsDecl . genValue)
+      map (cleanDataConsDecl . genTopLevelValue)
 
     -- the constructors of the result data-type
     stateTyConss : String
