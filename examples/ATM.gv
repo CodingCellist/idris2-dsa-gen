@@ -1,7 +1,7 @@
 digraph ATM {
     Ready -> CardInserted [label="InsertCard"];
     CardInserted -> Ready [label="EjectCard"];
-    CardInserted -> CardInserted [label="GetPIN; CheckPIN?(Incorrect)"];
+    CardInserted -> CardInserted [label="GetPIN!(PIN); CheckPIN?(Incorrect)"];
     CardInserted -> Session [label="CheckPIN?(Correct)"];
     Session -> Session [label="Dispense"];
     Session -> Ready [label="EjectCard"];   // not entirely correct
