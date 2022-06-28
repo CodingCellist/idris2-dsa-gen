@@ -49,13 +49,16 @@ dotFileToDSA fileName =
 -- Tests and examples --
 ------------------------
 
+successMsg : IO ()
+successMsg = putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+
 ||| Test the CG with the DOT-file found in `examples/ATM.gv`.
 export
 atmTest : IO ()
 atmTest =
   do Right atmDSA <- dotFileToDSA "../examples/ATM.gv"
        | Left err => printLn err
-     putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+     successMsg
      putStrLn $ toIdris2 atmDSA
 
 ||| Test the CG with the DOT-file found in `examples/ARQ.gv`.
@@ -64,8 +67,16 @@ arqTest : IO ()
 arqTest =
   do Right arqDSA <- dotFileToDSA "../examples/ARQ.gv"
        | Left err => printLn err
-     putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+     successMsg
      putStrLn $ toIdris2 arqDSA
+
+||| Test the CG with the DOT-file found in `examples/MESI.gv`
+export
+mesiTest : IO ()
+mesiTest =
+  do Right mesiDSA <- dotFileToDSA "../examples/MESI.gv"
+       | Left err => printLn err
+     putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
 
 ||| Test the CG with a user-specified DOT-file.
 export
@@ -73,7 +84,7 @@ customTest : (gvFile : String) -> IO ()
 customTest gvFile =
   do Right customDSA <- dotFileToDSA gvFile
         | Left err => printLn err
-     putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+     successMsg
      putStrLn $ toIdris2 customDSA
 
 {-

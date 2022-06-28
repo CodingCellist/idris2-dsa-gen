@@ -1,0 +1,24 @@
+digraph MESI {
+    // bus initiated transaction
+    M -> I [label="BusRdX_Flush"];
+    M -> S [label="BusRd_Flush"];
+
+    E -> I [label="BusRdX_Flush"];
+    E -> S [label="BusRd_"];
+
+    S -> I [label="BusRdX_Flush"];
+
+    // processor initiated transactions
+    M -> M [label="PrRd_; PrWr_"];
+
+    E -> M [label="PrWr_"];
+    E -> E [label="PrRd_"];
+
+    S -> M [label="PrWr_BusRdX"];
+    S -> S [label="PrRd_"];
+
+    I -> S [label="PrRd_BusRdS"];
+    I -> E [label="PrRd_BusRdS"];
+    I -> M [label="ProcWr_BusRdX"];
+} 
+
