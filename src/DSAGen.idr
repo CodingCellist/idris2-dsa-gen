@@ -7,7 +7,7 @@ import DSAGen.Parser
 import Graphics.DOT
 
 import System.File
-import Text.Lexer.Core
+import Libraries.Text.Lexer.Core
 
 --------------------
 -- Util functions --
@@ -23,7 +23,7 @@ dotFileToDSA fileName =
   do Right dotAST <- readDOTFile fileName
        | Left err => do printLn err
                         putStrLn "\n"
-                        ?dot_error_means_we_cant_proceed
+                        assert_total $ idris_crash "Argh!"
      pure $ toDSAv2 dotAST
 
 ------------------------

@@ -339,7 +339,8 @@ label =  tdpCmd
 
 ||| Parse a label containing a DSA command
 export
-parseLabel :  List (WithBounds LabelTok)
-      -> Either (List1 (ParsingError LabelTok)) (DSALabel, List (WithBounds LabelTok))
+parseLabel :  (toks :List (WithBounds LabelTok))
+           -> Either (List1 (ParsingError LabelTok))
+                     (ParsingWarnings, DSALabel, List (WithBounds LabelTok))
 parseLabel toks = parse label toks
 

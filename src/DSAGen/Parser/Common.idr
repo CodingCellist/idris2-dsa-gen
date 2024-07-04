@@ -1,6 +1,6 @@
 module DSAGen.Parser.Common
 
-import public Text.Parser
+import public Libraries.Text.Parser
 
 import Data.String
 

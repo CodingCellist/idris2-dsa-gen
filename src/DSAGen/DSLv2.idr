@@ -318,8 +318,8 @@ stringToIdrisValue s =
      let (Right parsed) = parseValue toks
           | Left pErrors => Left $ ValueParseError s pErrors
      case parsed of
-          (val, []) => pure val
-          (val, rem@(_ :: _)) => Left $ ParseRemainderError s rem
+          (warns, val, []) => pure val
+          (warns, val, rem@(_ :: _)) => Left $ ParseRemainderError s rem
 
 ||| Convert the given string to a valid Idris data constructor value, if it is
 ||| one.
@@ -352,8 +352,8 @@ stringToDSALabel s =
      let (Right parsed) = parseLabel toks
           | Left pErrors => Left $ DSALabelParseError s pErrors
      case parsed of
-          (dsaLabel, []) => pure dsaLabel
-          (dsaLabel, rem@(_ :: _)) => Left $ ParseRemainderError s rem
+          (warns, dsaLabel, []) => pure dsaLabel
+          (warns, dsaLabel, rem@(_ :: _)) => Left $ ParseRemainderError s rem
 
 ||| Accumulate the new state in the accumulator iff the state is not already an
 ||| element of the accumulator.

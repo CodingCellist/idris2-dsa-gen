@@ -35,6 +35,16 @@ data Value : Type where
 -- INTERFACES
 --------------------------------------------------------------------------------
 
+------------------
+-- ParsingError --
+------------------
+
+export
+Show (ParsingError LabelTok) where
+  show (Error errStr Nothing) = errStr
+  show (Error errStr (Just (MkBounds startLine startCol endLine endCol)))
+    = "\{errStr}@L\{show startLine}:\{show startCol}-L\{show endLine}:\{show endCol}"
+
 ---------
 -- DOT --
 ---------
@@ -201,7 +211,8 @@ mutual
 
 ||| Parse a string containing an Idris value
 export
-parseValue :  List (WithBounds LabelTok)
-           -> Either (List1 (ParsingError LabelTok)) (Value, List (WithBounds LabelTok))
+parseValue :  (toks : List (WithBounds LabelTok))
+           -> Either (List1 (ParsingError LabelTok))
+                     (ParsingWarnings, Value, List (WithBounds LabelTok))
 parseValue toks = parse value toks
 
