@@ -1,0 +1,7 @@
+digraph ARQ {
+  "Ready sn" -> "Waiting sn" [label="Send:(Pkt)"]
+  "Waiting sn" -> "Acked sn an" [label="Wait?(Ack an)"]
+  "Waiting sn" -> "Ready sn" [label="Wait?(Timeout)"]
+  "Acked sn an" -> "Ready sn" [label="Proceed:(Equal an sn)"]
+  "Acked sn an" -> "Ready sn" [label="Retry:(NotEqual an sn)"]
+}
