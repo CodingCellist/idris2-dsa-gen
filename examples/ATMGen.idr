@@ -1,8 +1,3 @@
-
-
-	 -- SUCCESS!!! --
-
-
 data ATMState
   = Session
   | CardInserted
@@ -26,9 +21,3 @@ data ATMCmd : (resTy : Type) -> ATMState -> (resTy -> ATMState) -> Type where
   (>>=) :  ATMCmd resTy state_1 state2_fn
         -> (contn : (res : resTy) -> ATMCmd cResTy (state2_fn res) state3_fn)
         -> ATMCmd cResTy state_1 state3_fn
-Warning: compiling hole DSAGen.Idris2CodeGen.takedepprod_res_cg_not_implemented_sorry
-Warning: compiling hole DSAGen.Idris2CodeGen.takedepprod_cg_not_implemented_sorry
-Warning: compiling hole DSAGen.Idris2CodeGen.takedep_res_cg_not_implemented_sorry
-Warning: compiling hole DSAGen.Idris2CodeGen.takedep_cg_not_implemented_sorry
-Warning: compiling hole DSAGen.Idris2CodeGen.depprod_res_cg_not_implemented_sorry
-Warning: compiling hole DSAGen.Idris2CodeGen.depprod_cg_not_implemented_sorry

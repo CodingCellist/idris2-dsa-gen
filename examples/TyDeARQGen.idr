@@ -1,8 +1,3 @@
-
-
-	 -- SUCCESS!!! --
-
-
 data ARQState
   = Acked ?sn_type ?an_type
   | Waiting ?sn_type
