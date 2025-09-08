@@ -157,6 +157,17 @@ There are currently the following limitations to this project:
       reflection, meaning that there are no guarantees that the resulting Idris
       is valid. I have taken _extreme_ care in crafting these magic strings, but
       there may be issues (please let me know if so!).
+  - As an indirect consequence of the previous limitation, the top-level
+      dependent state functions which are generated for dependent edges (and
+      their friends) are not aware of whether they should be taking any
+      additional arguments (other than the current state).  This was not a
+      problem when generating them as inline lambda-`case` expressions, since
+      implicit arguments would then either be in scope elsewhere in the
+      constructor, or Idris would automatically generalise them.  However, that
+      is not the case for top-level functions; an unknown argument is an error,
+      not a compiler-inserted implicit argument (which is fair enough).  Doing
+      this properly -- detecting the necessary arguments etc. -- would probably
+      be quite annoying/difficult, so it has not been implemented.
   - Edge names are assumed to be correct and unique (except for dependent edges,
       where they are expected to match). It is the programmer's/diagram-drawer's
       responsibility to make sure this is true.

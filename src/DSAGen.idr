@@ -42,6 +42,16 @@ atmTest =
      successMsg
      putStrLn $ toIdris2 atmDSA
 
+||| Test the ISM CG with the DOT-file found in `examples/ATM.gv`.
+export
+atmISMTest : IO ()
+atmISMTest =
+  do Right atmDSA <- dotFileToDSA "../examples/ATM.gv"
+       | Left err => printLn err
+     successMsg
+     putStrLn $ toISM atmDSA
+
+
 ||| Test the CG with the DOT-file found in `examples/ARQ.gv`.
 export
 arqTest : IO ()
@@ -50,6 +60,16 @@ arqTest =
        | Left err => printLn err
      successMsg
      putStrLn $ toIdris2 arqDSA
+
+||| Test the ISM CG with the DOT-file found in `examples/ARQ.gv`.
+export
+arqISMTest : IO ()
+arqISMTest =
+  do Right arqDSA <- dotFileToDSA "../examples/ARQ.gv"
+       | Left err => printLn err
+     successMsg
+     putStrLn $ toISM arqDSA
+
 
 ||| Test the CG with the DOT-file found in `examples/MESI.gv`
 export

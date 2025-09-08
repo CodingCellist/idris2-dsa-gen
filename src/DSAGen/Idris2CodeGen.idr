@@ -200,21 +200,36 @@ bindCmd dsaName = concat $ map (indent tabWidth) $
 ||| The data type for DSA commands is based on the DSA's name and carries the
 ||| result type, the current state, and a function from the result type to the
 ||| next state.
+|||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and a
+|||        standalone command type if `False` (the default).
 total
-genCmdDecl : (dsaName : String) -> String
-genCmdDecl dsaName =
+genCmdDecl : {default False ism : Bool} -> (dsaName : String) -> String
+genCmdDecl {ism=False} dsaName =
   "data \{dsaName}Cmd : (resTy : Type) -> \{dsaName}State -> (resTy -> \{dsaName}State) -> Type where"
+genCmdDecl {ism=True} dsaName =
+  "data \{dsaName}Op : (resTy : Type) -> \{dsaName}State -> (resTy -> \{dsaName}State) -> Type where"
 
 
 ||| The barebones command type string
+|||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and a
+|||        standalone command type if `False` (the default).
 total
-commandTy : (dsaName : String) -> String
-commandTy dsaName = "\{dsaName}Cmd"
+commandTy : {default False ism : Bool} -> (dsaName : String) -> String
+commandTy {ism=False} dsaName = "\{dsaName}Cmd"
+commandTy {ism=True} dsaName = "\{dsaName}Op"
 
 ||| The barebones state type string
 total
 stateTy : (dsaName : String) -> String
 stateTy dsaName = "\{dsaName}State"
+
+
+||| The barebones dependent state tranisition function string
+total
+depFnName : (completeDC : DepCmdAcc) -> String
+depFnName completeDC = "\{completeDC.cmd}Fn"
 
 
 ----------------
@@ -295,11 +310,13 @@ genDataConsDecl dcTy (Element (DataVal dc (Just args)) isDV) =
 ||| A plain command is a constructor which takes no arguments and always goes to
 ||| the same state (i.e. no dependent transition).
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the plain command.
-genPlainEdge : (dsaName : String) -> (edge : Subset DSAEdge IsPlainEdge) -> String
+genPlainEdge : {default False ism : Bool} -> (dsaName : String) -> (edge : Subset DSAEdge IsPlainEdge) -> String
 genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
-  let cmdStart = commandTy dsaName
+  let cmdStart = commandTy {ism=ism} dsaName
       fromState = genInternalValue from.fst
       toState = genInternalValue to.fst
   in "\{cmd} : \{cmdStart} \{noRes} \{fromState} (const \{toState})"
@@ -307,15 +324,18 @@ genPlainEdge dsaName (Element (MkDSAEdge (PlainCmd cmd) from to) isPlain) =
 ||| Generate all the plain edge definitions in the DSA, properly indented and
 ||| line-separated.
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the plain edges belong to.
 ||| @ plainEdges The edges which are definitely plain.
 ||| @ edgesArePlain A proof that the edges are plain.
-genPlainEdges :  (dsaName : String)
+genPlainEdges :  {default False ism : Bool}
+              -> (dsaName : String)
               -> (plainEdges : List DSAEdge)
               -> (0 edgesArePlain : All IsPlainEdge plainEdges)
               -> String
 genPlainEdges dsaName plainEdges edgesArePlain =
-  indentAndLineSep $ map (genPlainEdge dsaName) plainEdgeSubsets
+  indentAndLineSep $ map (genPlainEdge {ism=ism} dsaName) plainEdgeSubsets
   where
     -- we need to bundle the proofs for `genPlainEdge`
     plainEdgeSubsets : List (Subset DSAEdge IsPlainEdge)
@@ -325,14 +345,17 @@ genPlainEdges dsaName plainEdges edgesArePlain =
 ||| constructor which produces nothing and goes to a constant state (or it would
 ||| be a take-dep command).
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take command
-genTakeEdge :  (dsaName : String)
+genTakeEdge :  {default False ism : Bool}
+            -> (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsTakeEdge edge}
             -> String
 genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
-  let cmdTyStart = commandTy dsaName
+  let cmdTyStart = commandTy {ism=ism} dsaName
       argStr = genInternalValue arg
       fromState = genInternalValue from.fst
       toState = genInternalValue to.fst
@@ -342,14 +365,17 @@ genTakeEdge dsaName (MkDSAEdge (TakeCmd cmd (Takes arg)) from to) =
 ||| return type, and it must always go to the same state (or it would be a
 ||| prod-dep command).
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the prod command
-genProdEdge :  (dsaName : String)
+genProdEdge :  {default False ism : Bool}
+            -> (dsaName : String)
             -> (edge : DSAEdge)
             -> {auto 0 constraint : IsProdEdge edge}
             -> String
 genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
-  let cmdTyStart = commandTy dsaName
+  let cmdTyStart = commandTy {ism=ism} dsaName
       resStr = genInternalValue val
       fromState = genInternalValue from.fst
       toState = genInternalValue to.fst
@@ -359,14 +385,17 @@ genProdEdge dsaName (MkDSAEdge (ProdCmd cmd (Produce val)) from to) =
 ||| to a constructor with the result as the return type, and it must always go
 ||| to the same state (or it would be a take-dep-prod command).
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the command is part of.
 ||| @ edge The `DSAEdge` containing the description of the take-prod command.
-genTPEdge :  (dsaName : String)
+genTPEdge :  {default False ism : Bool}
+          -> (dsaName : String)
           -> (edge : DSAEdge)
           -> {auto 0 constraint : IsTPEdge edge}
           -> String
 genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
-  let cmdTyStart = commandTy dsaName
+  let cmdTyStart = commandTy {ism=ism} dsaName
       argStr = genInternalValue arg
       resStr = genInternalValue val
       fromState = genInternalValue from.fst
@@ -394,15 +423,17 @@ genDepCmdCaseExpr (MkDCAcc _ _ cases) =
 
 ||| Generate the data constructor representing the depedent command in a DSA.
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA in which the depedent command occurs.
 ||| @ completeDC The entire dependent command.
-genDepCmdBody : (dsaName : String) -> (completeDC : DepCmdAcc) -> String
+genDepCmdBody : {default False ism : Bool} -> (dsaName : String) -> (completeDC : DepCmdAcc) -> String
 genDepCmdBody dsaName completeDC =
   "\{completeDC.cmd} : \{cmdStart} \{resTy} \{fromState} \{toCaseFn}"
   where
     -- the start of the command declaration
     cmdStart : String
-    cmdStart = commandTy dsaName
+    cmdStart = commandTy {ism=ism} dsaName
 
     -- the type of the result (see the where-block in `genDepRess`)
     resTy : String
@@ -413,14 +444,18 @@ genDepCmdBody dsaName completeDC =
 
     -- the destination state is a dep.t function (that's kinda the whole idea)
     toCaseFn : String
-    toCaseFn = genDepCmdCaseExpr completeDC
+    ---DELME: toCaseFn = genDepCmdCaseExpr completeDC
+    toCaseFn = "(\{completeDC.cmd}Fn)"
 
 ||| Generate the data constructor representing a non-plain, non-dependent edge
 ||| (i.e. either a Take, Prod, or Take-Prod edge).
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA in which the edge occurs.
 ||| @ npndEdge The non-plain, non-dependent edge; along with its proofs.
-genNotPlainNonDepEdge :  (dsaName : String)
+genNotPlainNonDepEdge :  {default False ism : Bool}
+                      -> (dsaName : String)
                       -> (npndEdge : Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND)
                       -> String
 genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (PlainCmd _) _ _) np) _) =
@@ -434,28 +469,35 @@ genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (DPCmd _ _ _) _ _) _)
 genNotPlainNonDepEdge dsaName (Element (Element (MkDSAEdge (TDPCmd _ _ _ _) _ _) _) npnd) =
   void $ absurd npnd
 genNotPlainNonDepEdge dsaName (Element (Element te@(MkDSAEdge (TakeCmd cmd arg) from to) _) _) =
-  genTakeEdge dsaName te
+  genTakeEdge {ism=ism} dsaName te
 genNotPlainNonDepEdge dsaName (Element (Element pe@(MkDSAEdge (ProdCmd cmd res) from to) _) _) =
-  genProdEdge dsaName pe
+  genProdEdge {ism=ism} dsaName pe
 genNotPlainNonDepEdge dsaName (Element (Element tpe@(MkDSAEdge (TPCmd cmd arg res) from to) _) _) =
-  genTPEdge dsaName tpe
+  genTPEdge {ism=ism} dsaName tpe
 
 ||| Generate all the non-plain, non-dependent edge definitions, properly
 ||| indenting and line-separating them along the way.
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
 ||| @ dsaName The name of the DSA that the edges are part of.
 ||| @ npndEs The non-plain, non-dependent edges to generate, along with their
 |||          proofs.
 ||| See-also: `genNotPlainNonDepEdge`
-genNotPlainNonDepEdges :  (dsaName : String)
+genNotPlainNonDepEdges :  {default False ism : Bool}
+                       -> (dsaName : String)
                        -> (npndEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) NPND))
                        -> String
 genNotPlainNonDepEdges dsaName npndEs =
-  indentAndLineSep $ map (genNotPlainNonDepEdge dsaName) npndEs
+  indentAndLineSep $ map (genNotPlainNonDepEdge {ism=ism} dsaName) npndEs
 
 ||| Partition, accumulate, and generate all the non-plain, dependent edge
 ||| definitions, properly indenting and line-separating them along the way.
-genNonPlainDependentEdges :  (dsaName : String)
+|||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
+genNonPlainDependentEdges :  {default False ism : Bool}
+                          -> (dsaName : String)
                           -> (npdEs : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND)))
                           -> String
 genNonPlainDependentEdges dsaName npdEs =
@@ -473,7 +515,7 @@ genNonPlainDependentEdges dsaName npdEs =
       case subsetFilter isDepEdge justTheNPDEs of
            [] => ""
            des@(_ :: _) => indentAndLineSep $
-               map (genDepCmdBody dsaName) $ toList (accAllDEs $ toList1 des)
+               map (genDepCmdBody {ism=ism} dsaName) $ toList (accAllDEs $ toList1 des)
 
     -- all the take-dep commands, indented and line-separated
     tdDecls : String
@@ -502,19 +544,25 @@ genNonPlainDependentEdges dsaName npdEs =
 
 ||| A universal edge can be taken from anywhere in the DSA, and so does not name
 ||| a specific state in its command definition.
-genUniversalEdge : (dsaName : String) -> (ue : UniversalEdge) -> String
+|||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
+genUniversalEdge : {default False ism : Bool} -> (dsaName : String) -> (ue : UniversalEdge) -> String
 genUniversalEdge dsaName (MkUniversalEdge
                          (Element (PlainCmd cmd) isPlain)
                          (Element dest@(DataVal to args) isDV)
                          ) =
-  let cmdStart = commandTy dsaName
+  let cmdStart = commandTy {ism=ism} dsaName
       destState = genInternalValue dest
   in "\{cmd} : \{cmdStart} \{noRes} anyState (const \{destState})"
 
 ||| Generate all the universal edge commands, indented and line-separated.
-genUniversalEdges : (dsaName : String) -> (ues : List UniversalEdge) -> String
+|||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and
+|||        standalone commands if `False` (the default).
+genUniversalEdges : {default False ism : Bool} -> (dsaName : String) -> (ues : List UniversalEdge) -> String
 genUniversalEdges dsaName ues =
-  indentAndLineSep $ map (genUniversalEdge dsaName) ues
+  indentAndLineSep $ map (genUniversalEdge {ism=ism} dsaName) ues
 
 -------------------------
 -- Dependent result CG --
@@ -609,6 +657,45 @@ genDepResults edges =
     npDepEdges : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND))
     npDepEdges = splitNawsSubset npndSplit
 
+||| Generate the given dependent edge's state function.
+genDepFn : (dsaName : String) -> (completeDC : DepCmdAcc) -> String
+genDepFn dsaName completeDC =
+  "\{depFnName completeDC} : (\{resTy}) -> (\{stateTy dsaName})" ++ "\n" ++
+  "\{depFnName completeDC} = \{lambdaCaseFn}"
+  where
+    resTy : String
+    resTy = "\{completeDC.cmd}Res"
+    ---DELME resTy = "Res"
+
+    lambdaCaseFn : String
+    lambdaCaseFn = genDepCmdCaseExpr completeDC
+
+||| Generate all the dependent state functions needed for each dependent edge.
+genDepFns :  (dsaName : String)
+          -> (edges : Split IsPlainEdge allEdges)
+          -> String
+genDepFns dsaName edges = joinBy "\n\n" depFns
+  where
+    -- all the non-plain edges, paired with their proofs
+    NotPlainEdges : List (Subset DSAEdge (Not . IsPlainEdge))
+    NotPlainEdges = splitNawsSubset edges
+
+    -- the split of non-plain edges, split on whether they're dependent
+    npndSplit : Split NPND (reverse NotPlainEdges)
+    npndSplit = split isNPND NotPlainEdges
+
+    -- all the non-plain, DEPENDENT edges
+    npdEdges : List (Subset (Subset DSAEdge (Not . IsPlainEdge)) (Not . NPND))
+    npdEdges = pushIn npndSplit.naws npndSplit.contras
+
+    -- all the dependent case functions
+    depFns : List String
+    depFns =
+      case subsetFilter isDepEdge (map (Subset.fst . Subset.fst) npdEdges) of
+           [] => [""]
+           des@(_ :: _) =>
+               map (genDepFn dsaName) $ toList (accAllDEs $ toList1 des)
+
 -------------
 -- Edge CG --
 -------------
@@ -620,9 +707,12 @@ genDepResults edges =
 |||   - prod, take, and prod-take edges
 |||   - dependent edges (and their combinations)
 |||
+||| @ ism  Generate generic Indexed State Monad operations if `True`, and a
+|||        standalone command type if `False` (the default).
 ||| @ dsaName The name of the DSA that the edges are part of.
 ||| @ edges The split of all the edges
-genEdges :  (dsaName : String)
+genEdges :  {default False ism : Bool}
+         -> (dsaName : String)
          -> (edges : Split IsPlainEdge allEdges)
          -> String
 genEdges dsaName edges =
@@ -630,7 +720,7 @@ genEdges dsaName edges =
   where
     -- all the plain edge definitions, indented and line-separated
     plainEdgeDefs : String
-    plainEdgeDefs = genPlainEdges dsaName edges.ayes edges.prfs
+    plainEdgeDefs = genPlainEdges {ism=ism} dsaName edges.ayes edges.prfs
 
     -- all the non-plain edges, paired with their proofs
     NotPlainEdges : List (Subset DSAEdge (Not . IsPlainEdge))
@@ -643,12 +733,12 @@ genEdges dsaName edges =
     -- all the non-plain, NON-DEPENDENT edge definitions, indented etc.
     npndEdges : String
     npndEdges =
-      genNotPlainNonDepEdges dsaName $ pushIn npndSplit.ayes npndSplit.prfs
+      genNotPlainNonDepEdges {ism=ism} dsaName $ pushIn npndSplit.ayes npndSplit.prfs
 
     -- all the non-plain, DEPENDENT edge definitions, indented etc.
     npDepEdges : String
     npDepEdges =
-      genNonPlainDependentEdges dsaName $ pushIn npndSplit.naws npndSplit.contras
+      genNonPlainDependentEdges {ism=ism} dsaName $ pushIn npndSplit.naws npndSplit.contras
 
 --------------
 -- State CG --
@@ -684,12 +774,18 @@ genStates dsaName states =
 -- Generating Idris2 --
 -----------------------
 
-||| Convert the given `DSA` to Idris2 source code.
+||| Generate Idris2 code based off the given `DSA`.
+|||
+||| @ ism  Generate generic Indexed State Monad code if `True`, and a standalone
+|||        command type if `False` (for more details, please see `toISM`'s
+|||        documentation).
 export
-toIdris2 : DSAv2 -> String
-toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
+codeGen : (ism : Bool) -> DSAv2 -> String
+-- standalone command
+codeGen False (MkDSAv2 dsaName states edges universalEdges) =
   let states = genStates dsaName states
       depResults = genDepResults edges
+      depFns = genDepFns dsaName edges
       cmdDecl = genCmdDecl dsaName
       edgeCmds = genEdges dsaName edges
       univEdgeCmds = genUniversalEdges dsaName universalEdges
@@ -698,12 +794,80 @@ toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
   in joinBy "\n\n" $ filter (/= "") $
      [ states
      , depResults
+     , depFns
      , cmdDecl
      , edgeCmds
      , univEdgeCmds
      , thePureCmd
      , theBindCmd
      ]
+-- generic ISM
+codeGen True (MkDSAv2 dsaName states edges universalEdges) =
+  let states = genStates dsaName states
+      depResults = genDepResults edges
+      depFns = genDepFns dsaName edges
+      opDecl = genCmdDecl {ism=True} dsaName
+      edgeCmds = genEdges {ism=True} dsaName edges
+      univEdgeCmds = genUniversalEdges {ism=True} dsaName universalEdges
+  in joinBy "\n\n" $ filter (/= "") $
+     [ states
+     , depResults
+     , depFns
+     , opDecl
+     , edgeCmds
+     , univEdgeCmds
+     ]
+
+||| Convert the given `DSA` to Idris2 source code.
+export
+toIdris2 : DSAv2 -> String
+toIdris2 dsa@(MkDSAv2 dsaName states edges universalEdges) = codeGen False dsa
+---DELME: toIdris2 (MkDSAv2 dsaName states edges universalEdges) =
+---DELME:   let states = genStates dsaName states
+---DELME:       depResults = genDepResults edges
+---DELME:       depFns = genDepFns dsaName edges
+---DELME:       cmdDecl = genCmdDecl dsaName
+---DELME:       edgeCmds = genEdges dsaName edges
+---DELME:       univEdgeCmds = genUniversalEdges dsaName universalEdges
+---DELME:       thePureCmd = pureCmd dsaName
+---DELME:       theBindCmd = bindCmd dsaName
+---DELME:   in joinBy "\n\n" $ filter (/= "") $
+---DELME:      [ states
+---DELME:      , depResults
+---DELME:      , depFns
+---DELME:      , cmdDecl
+---DELME:      , edgeCmds
+---DELME:      , univEdgeCmds
+---DELME:      , thePureCmd
+---DELME:      , theBindCmd
+---DELME:      ]
+
+||| Convert the given `DSA` to Idris2 Indexed State Monad code.
+|||
+||| This generates the states, functions, and operation types necessary for
+||| integrating with the generic ISM encoding presented in "Type-Level Property
+||| Based Testing" by Hansen and Brady, 2024
+||| (https://doi.org/10.1145/3678000.3678206)
+export
+toISM : DSAv2 -> String
+toISM dsa@(MkDSAv2 dsaName states edges universalEdges) = codeGen True dsa
+---DELME: toISM (MkDSAv2 dsaName states edges universalEdges) =
+---DELME:   let states = genStates dsaName states
+---DELME:       depResults = genDepResults edges
+---DELME:       depFns = genDepFns dsaName edges
+---DELME:       opDecl = genISMOpDecl dsaName
+---DELME:       edgeCmds = genEdges dsaName edges
+---DELME:       univEdgeCmds = genUniversalEdges dsaName universalEdges
+---DELME:   in joinBy "\n\n" $ filter (/= "") $
+---DELME:      [ states
+---DELME:      , depResults
+---DELME:      , depFns
+---DELME:      , opDecl
+---DELME:      , edgeCmds
+---DELME:      , univEdgeCmds
+---DELME:      ]
+
+
 
 
 --------------------------------------------------------------------------------
@@ -1091,9 +1255,9 @@ testGenDepResDataTy2 = genDepResDataTy accDEs2
 testGenDepResDataTy3 : String
 testGenDepResDataTy3 = genDepResDataTy accDEs3
 
---------------------------
--- Dep-edge case-fn gen --
---------------------------
+------------------------------
+-- Dep-edge lambda-case gen --
+------------------------------
 
 ||| "(\\case (Res1) => (ToState1))"
 testGenDepCmdCaseExpr1 : String
@@ -1108,18 +1272,40 @@ testGenDepCmdCaseExpr3 : String
 testGenDepCmdCaseExpr3 = genDepCmdCaseExpr accDEs3
 
 --------------------------
+-- Dep-edge state-fn gen --
+--------------------------
+
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res1) => (ToState1))"
+testGenDepCmdStateFn1 : String
+testGenDepCmdStateFn1 = genDepFn "TestDSA" accDEs1
+
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res2) => (ToState2); (Res1) => (ToState1))"
+testGenDepCmdStateFn2 : String
+testGenDepCmdStateFn2 = genDepFn "TestDSA" accDEs2
+
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
+testGenDepCmdStateFn3 : String
+testGenDepCmdStateFn3 = genDepFn "TestDSA" accDEs3
+
+--------------------------
 -- Dep-edge command gen --
 --------------------------
 
-||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (\\case (Res1) => (ToState1))"
+||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
+|||
+||| (where `ADepCmdFn := (\\case (Res1) => (ToState1))`)
 testGenDepCmdBody1 : String
 testGenDepCmdBody1 = genDepCmdBody "TestDSA" accDEs1
 
-||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (\\case (Res2) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
+|||
+||| (where `ADepCmdFn := (\\case (Res2) => (ToState2); (Res1) => (ToState1))`)
 testGenDepCmdBody2 : String
 testGenDepCmdBody2 = genDepCmdBody "TestDSA" accDEs2
 
-||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
+|||
+||| (where `ADepCmdFn := (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))`)
 testGenDepCmdBody3 : String
 testGenDepCmdBody3 = genDepCmdBody "TestDSA" accDEs3
 
