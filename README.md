@@ -165,9 +165,12 @@ There are currently the following limitations to this project:
       implicit arguments would then either be in scope elsewhere in the
       constructor, or Idris would automatically generalise them.  However, that
       is not the case for top-level functions; an unknown argument is an error,
-      not a compiler-inserted implicit argument (which is fair enough).  Doing
-      this properly -- detecting the necessary arguments etc. -- would probably
-      be quite annoying/difficult, so it has not been implemented.
+      not a compiler-inserted implicit argument (which is fair enough).
+      However, storing the necessary information in the state and/or results
+      *will* result in the function being generated correctly.  Doing proper
+      top-level function generation -- detecting the necessary arguments etc. --
+      would probably be quite annoying/difficult, and so this has not been
+      implemented.
   - Edge names are assumed to be correct and unique (except for dependent edges,
       where they are expected to match). It is the programmer's/diagram-drawer's
       responsibility to make sure this is true.

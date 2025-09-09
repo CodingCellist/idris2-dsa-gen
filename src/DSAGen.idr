@@ -80,6 +80,15 @@ mesiTest =
      putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
      putStrLn $ toIdris2 mesiDSA
 
+||| Test the ISM CG with the DOT-file found in `examples/MESI.gv`
+export
+mesiISMTest : IO ()
+mesiISMTest =
+  do Right mesiDSA <- dotFileToDSA "../examples/MESI.gv"
+       | Left err => printLn err
+     putStrLn "\n\n\t -- SUCCESS!!! --\n\n"
+     putStrLn $ toISM mesiDSA
+
 ||| Test the CG with a user-specified DOT-file.
 export
 customTest : (gvFile : String) -> IO ()
@@ -88,4 +97,13 @@ customTest gvFile =
         | Left err => printLn err
      successMsg
      putStrLn $ toIdris2 customDSA
+
+||| Test the ISM CG with a user-specified DOT-file.
+export
+customISMTest : (gvFile : String) -> IO ()
+customISMTest gvFile =
+  do Right customDSA <- dotFileToDSA gvFile
+        | Left err => printLn err
+     successMsg
+     putStrLn $ toISM customDSA
 

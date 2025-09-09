@@ -407,8 +407,8 @@ genTPEdge dsaName (MkDSAEdge (TPCmd cmd (Takes arg) (Produce val)) from to) =
 |||
 ||| @ completeDC The entire dependent command.
 genDepCmdCaseExpr : (completeDC : DepCmdAcc) -> String
-genDepCmdCaseExpr (MkDCAcc _ _ cases) =
-  "(\\case " ++ joinBy "; " (toList $ map genCase cases) ++ ")"
+genDepCmdCaseExpr completeDC =
+  joinBy "\n" (toList $ map genCase completeDC.cases)
   where
     -- the LHS (i.e. pattern) of the case expression
     genCaseLHS : DepArg -> String
@@ -419,7 +419,7 @@ genDepCmdCaseExpr (MkDCAcc _ _ cases) =
     genCaseRHS depDest = genInternalValue depDest.fst
 
     genCase : DepRes -> String
-    genCase dr = "\{genCaseLHS dr.depCase} => \{genCaseRHS dr.caseTo}"
+    genCase dr = "\{completeDC.cmd}Fn \{genCaseLHS dr.depCase} = \{genCaseRHS dr.caseTo}"
 
 ||| Generate the data constructor representing the depedent command in a DSA.
 |||
@@ -661,14 +661,13 @@ genDepResults edges =
 genDepFn : (dsaName : String) -> (completeDC : DepCmdAcc) -> String
 genDepFn dsaName completeDC =
   "\{depFnName completeDC} : (\{resTy}) -> (\{stateTy dsaName})" ++ "\n" ++
-  "\{depFnName completeDC} = \{lambdaCaseFn}"
+  "\{depFnBody}"
   where
     resTy : String
     resTy = "\{completeDC.cmd}Res"
-    ---DELME resTy = "Res"
 
-    lambdaCaseFn : String
-    lambdaCaseFn = genDepCmdCaseExpr completeDC
+    depFnBody : String
+    depFnBody = genDepCmdCaseExpr completeDC
 
 ||| Generate all the dependent state functions needed for each dependent edge.
 genDepFns :  (dsaName : String)
@@ -1259,15 +1258,18 @@ testGenDepResDataTy3 = genDepResDataTy accDEs3
 -- Dep-edge lambda-case gen --
 ------------------------------
 
-||| "(\\case (Res1) => (ToState1))"
+||| "ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdCaseExpr1 : String
 testGenDepCmdCaseExpr1 = genDepCmdCaseExpr accDEs1
 
-||| "(\\case (Res2) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmdFn (Res2) = (ToState2)
+|||  ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdCaseExpr2 : String
 testGenDepCmdCaseExpr2 = genDepCmdCaseExpr accDEs2
 
-||| "(\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmdFn (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) = (ToState3 (ts3_1))
+|||  ADepCmdFn (Res2 (Arg2_1)) = (ToState2)
+|||  ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdCaseExpr3 : String
 testGenDepCmdCaseExpr3 = genDepCmdCaseExpr accDEs3
 
@@ -1275,15 +1277,21 @@ testGenDepCmdCaseExpr3 = genDepCmdCaseExpr accDEs3
 -- Dep-edge state-fn gen --
 --------------------------
 
-||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res1) => (ToState1))"
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)
+|||  ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdStateFn1 : String
 testGenDepCmdStateFn1 = genDepFn "TestDSA" accDEs1
 
-||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res2) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)
+|||  ADepCmdFn (Res2) = (ToState2)
+|||  ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdStateFn2 : String
 testGenDepCmdStateFn2 = genDepFn "TestDSA" accDEs2
 
-||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)\nADepCmdFn = (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))"
+||| "ADepCmdFn : (ADepCmdRes) -> (TestDSAState)
+|||  ADepCmdFn (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) = (ToState3 (ts3_1))
+|||  ADepCmdFn (Res2 (Arg2_1)) = (ToState2)
+|||  ADepCmdFn (Res1) = (ToState1)"
 testGenDepCmdStateFn3 : String
 testGenDepCmdStateFn3 = genDepFn "TestDSA" accDEs3
 
@@ -1292,20 +1300,14 @@ testGenDepCmdStateFn3 = genDepFn "TestDSA" accDEs3
 --------------------------
 
 ||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
-|||
-||| (where `ADepCmdFn := (\\case (Res1) => (ToState1))`)
 testGenDepCmdBody1 : String
 testGenDepCmdBody1 = genDepCmdBody "TestDSA" accDEs1
 
 ||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
-|||
-||| (where `ADepCmdFn := (\\case (Res2) => (ToState2); (Res1) => (ToState1))`)
 testGenDepCmdBody2 : String
 testGenDepCmdBody2 = genDepCmdBody "TestDSA" accDEs2
 
 ||| "ADepCmd : TestDSACmd (ADepCmdRes) (FromState) (ADepCmdFn)"
-|||
-||| (where `ADepCmdFn := (\\case (Res3 (Arg3_1) ((Arg3_1), (Arg3_2))) => (ToState3 (ts3_1)); (Res2 (Arg2_1)) => (ToState2); (Res1) => (ToState1))`)
 testGenDepCmdBody3 : String
 testGenDepCmdBody3 = genDepCmdBody "TestDSA" accDEs3
 
